@@ -16,6 +16,8 @@
 
 ## 网络架构
 
+### 流量路径
+
 ```
 客户端 → RouterOS (10.0.0.2) → mihomo (10.0.0.4) → AdGuard Home (10.0.0.5) → 互联网
            ↓                         ↓                      ↓
@@ -26,6 +28,22 @@
 - RouterOS 配置多 DNS（10.0.0.5, 223.5.5.5, 119.29.29.29）
 - 任一服务故障，网络自动切换备用路径
 - 保证上网不中断
+
+### 代理方式选择
+
+有两种方式让流量经过 mihomo：
+
+**方案一：设备手动设置代理（推荐）** ✅
+- 优点：配置简单，稳定可靠
+- 缺点：需要每个设备手动配置
+- 适用：PC、手机等支持代理设置的设备
+
+**方案二：透明代理（高级）** 🔧
+- 优点：全局生效，无需设备配置
+- 缺点：配置复杂，需要 RouterOS 策略路由
+- 适用：需要全网代理的场景
+
+> 💡 **建议**：新手使用方案一，高级用户可尝试方案二
 
 ---
 
@@ -400,6 +418,13 @@ https://raw.githubusercontent.com/privacy-protection-tools/dead-horse/master/ant
 
 ## RouterOS 配置
 
+### 重要说明
+
+RouterOS 主要负责：
+1. **DNS 劫持** - 所有 DNS 查询到 AdGuard Home
+2. **DHCP 分发** - 自动分配 IP 和 DNS
+3. **代理路由**（可选）- 透明代理流量到 mihomo
+
 ### 1. DNS 配置（带容错）
 
 ```bash
@@ -480,6 +505,172 @@ add chain=forward action=fasttrack-connection \
 add chain=forward action=accept connection-state=established,related
 ```
 
+### 6. 代理配置
+
+#### 方案一：设备手动设置代理（推荐）✅
+
+**无需 RouterOS 额外配置**，只需在客户端设备设置：
+
+**Windows:**
+```
+设置 → 网络和Internet → 代理
+- HTTP 代理: 10.0.0.4
+- 端口: 7890
+```
+
+**macOS:**
+```
+系统偏好设置 → 网络 → 高级 → 代理
+- HTTP 代理: 10.0.0.4:7890
+- HTTPS 代理: 10.0.0.4:7890
+- SOCKS 代理: 10.0.0.4:7891
+```
+
+**iOS/Android:**
+```
+WiFi 设置 → 配置代理 → 手动
+- 服务器: 10.0.0.4
+- 端口: 7890
+```
+
+**浏览器扩展（推荐）:**
+- SwitchyOmega (Chrome/Edge)
+- Proxy SwitchyOmega (Firefox)
+
+配置示例：
+```
+代理协议: HTTP
+代理服务器: 10.0.0.4
+代理端口: 7890
+```
+
+#### 方案二：透明代理（高级）🔧
+
+**需要额外配置 RouterOS 和 mihomo**
+
+##### A. mihomo 透明代理配置
+
+编辑 `/etc/mihomo/config.yaml`，添加：
+
+```yaml
+# 在基础配置部分添加
+tproxy-port: 7893
+```
+
+在 mihomo VM 上创建 iptables 规则脚本：
+
+```bash
+sudo nano /opt/mihomo/tproxy-setup.sh
+```
+
+```bash
+#!/bin/bash
+
+# 清理旧规则
+iptables -t mangle -F
+iptables -t nat -F
+
+# 创建 CLASH 链
+iptables -t mangle -N CLASH
+
+# 忽略本地和保留地址
+iptables -t mangle -A CLASH -d 0.0.0.0/8 -j RETURN
+iptables -t mangle -A CLASH -d 10.0.0.0/8 -j RETURN
+iptables -t mangle -A CLASH -d 127.0.0.0/8 -j RETURN
+iptables -t mangle -A CLASH -d 169.254.0.0/16 -j RETURN
+iptables -t mangle -A CLASH -d 172.16.0.0/12 -j RETURN
+iptables -t mangle -A CLASH -d 192.168.0.0/16 -j RETURN
+iptables -t mangle -A CLASH -d 224.0.0.0/4 -j RETURN
+iptables -t mangle -A CLASH -d 240.0.0.0/4 -j RETURN
+
+# 重定向到 mihomo
+iptables -t mangle -A CLASH -p tcp -j TPROXY --on-port 7893 --tproxy-mark 1
+iptables -t mangle -A CLASH -p udp -j TPROXY --on-port 7893 --tproxy-mark 1
+
+# 应用到 PREROUTING
+iptables -t mangle -A PREROUTING -j CLASH
+
+# 配置路由
+ip rule add fwmark 1 table 100
+ip route add local 0.0.0.0/0 dev lo table 100
+
+echo "TProxy 规则已配置"
+```
+
+```bash
+sudo chmod +x /opt/mihomo/tproxy-setup.sh
+sudo /opt/mihomo/tproxy-setup.sh
+```
+
+**开机自动加载：**
+
+```bash
+sudo nano /etc/systemd/system/mihomo-tproxy.service
+```
+
+```ini
+[Unit]
+Description=mihomo TProxy Rules
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/mihomo/tproxy-setup.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable mihomo-tproxy
+sudo systemctl start mihomo-tproxy
+```
+
+##### B. RouterOS 透明代理配置
+
+```bash
+# 标记需要代理的流量
+/ip firewall mangle
+add chain=prerouting \
+    src-address=10.0.0.0/24 \
+    dst-address-list=!local \
+    action=mark-routing \
+    new-routing-mark=proxy_route \
+    passthrough=yes \
+    comment="Mark proxy traffic"
+
+# 排除本地流量
+/ip firewall address-list
+add list=local address=10.0.0.0/24
+add list=local address=192.168.0.0/16
+add list=local address=172.16.0.0/12
+
+# 路由标记的流量到 mihomo
+/ip route
+add dst-address=0.0.0.0/0 \
+    gateway=10.0.0.4 \
+    routing-mark=proxy_route \
+    comment="Route to mihomo"
+
+# NAT 转发到 mihomo TProxy 端口
+/ip firewall nat
+add chain=dstnat \
+    src-address=10.0.0.0/24 \
+    dst-address-list=!local \
+    protocol=tcp \
+    action=dst-nat \
+    to-addresses=10.0.0.4 \
+    to-ports=7893 \
+    comment="Redirect to mihomo TProxy"
+```
+
+**注意事项：**
+- 透明代理会影响所有设备
+- 需要确保 mihomo 稳定运行
+- 可能导致某些应用无法使用
+- 建议先用方案一测试
+
 ---
 
 ## 验证测试
@@ -498,12 +689,35 @@ curl -I http://ad.doubleclick.net
 
 ### 2. 代理测试
 
+#### 方案一测试（手动代理）
+
 ```bash
-# 测试代理连接
+# 测试 HTTP 代理
 curl -x http://10.0.0.4:7890 https://www.google.com -I
 
-# 测试 IP
+# 测试 SOCKS5 代理
+curl --socks5 10.0.0.4:7891 https://www.google.com -I
+
+# 查看代理后的 IP
 curl -x http://10.0.0.4:7890 https://ip.sb
+curl -x http://10.0.0.4:7890 https://myip.ipip.net
+```
+
+#### 方案二测试（透明代理）
+
+```bash
+# 在客户端测试（无需设置代理）
+curl https://www.google.com -I
+
+# 查看 IP（应显示代理节点 IP）
+curl https://ip.sb
+
+# 在 mihomo VM 查看 iptables
+sudo iptables -t mangle -L -n -v
+
+# 查看路由表
+ip rule show
+ip route show table 100
 ```
 
 ### 3. 容错测试

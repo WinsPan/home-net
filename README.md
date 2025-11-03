@@ -68,6 +68,28 @@ curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/insta
     dst-address=!10.0.0.5 to-addresses=10.0.0.5 comment="DNS Hijack"
 ```
 
+### 4. 配置代理（二选一）
+
+#### 方案一：设备手动设置（推荐）✅
+
+在需要代理的设备上设置：
+- HTTP 代理: `10.0.0.4:7890`
+- SOCKS5 代理: `10.0.0.4:7891`
+
+**Windows:** 设置 → 网络 → 代理  
+**macOS:** 系统偏好设置 → 网络 → 代理  
+**iOS/Android:** WiFi 设置 → 配置代理
+
+**浏览器扩展（最方便）:**
+- 安装 SwitchyOmega
+- 配置代理服务器: `10.0.0.4:7890`
+
+#### 方案二：透明代理（高级）🔧
+
+全局生效，无需设备配置。
+
+查看 [完整配置文档](docs/CONFIG.md#6-代理配置) 了解详细步骤。
+
 完成！🎉
 
 ---
