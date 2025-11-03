@@ -8,12 +8,21 @@ BoomDNS 提供了一套自动化脚本，可以在 Proxmox VE 环境中一键创
 
 ## ✨ 特性
 
+### 🔰 mihomo 代理服务
 - 🚀 **一键部署**: 自动创建 Debian 12 LXC 容器
 - 🔧 **自动配置**: 自动下载并安装最新版 mihomo
 - 📦 **开箱即用**: 预配置 systemd 服务，容器重启自动启动
 - 🌐 **多架构支持**: 支持 x86_64、ARM64、ARMv7
 - 🎯 **交互式安装**: 友好的命令行交互界面
 - 📊 **完善的管理**: 提供完整的服务管理和监控命令
+
+### 🛡️ AdGuard Home 广告过滤
+- 🚫 **广告拦截**: 强大的 DNS 级别广告过滤
+- 🔒 **隐私保护**: 阻止追踪器和恶意软件
+- 📋 **规则丰富**: 整合优质开源广告过滤规则
+- 🎨 **易于管理**: Web 管理界面，实时统计
+- ⚡ **性能优秀**: 低资源占用，快速响应
+- 🌍 **全局生效**: 保护网络中所有设备
 
 ## 🎯 快速开始
 
@@ -23,7 +32,7 @@ BoomDNS 提供了一套自动化脚本，可以在 Proxmox VE 环境中一键创
 - 具有 root 权限的 SSH 访问
 - 互联网连接（用于下载模板和 mihomo）
 
-### 一键部署
+### 部署 mihomo 代理服务
 
 在 Proxmox VE 主机上执行以下命令：
 
@@ -31,26 +40,30 @@ BoomDNS 提供了一套自动化脚本，可以在 Proxmox VE 环境中一键创
 bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/create-mihomo-lxc.sh)
 ```
 
-或者下载后执行：
+脚本会自动创建容器并安装 mihomo，完成后可以通过 Web 面板 (Yacd) 管理代理。
+
+**详细文档**: 查看 [快速入门指南](docs/QUICKSTART.md) 和 [使用文档](docs/USAGE.md)
+
+### 部署 AdGuard Home 广告过滤
+
+在 Proxmox VE 主机上执行以下命令：
 
 ```bash
-wget https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/create-mihomo-lxc.sh
-chmod +x create-mihomo-lxc.sh
-./create-mihomo-lxc.sh
+bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/create-adguardhome-lxc.sh)
 ```
 
-### 安装过程
+脚本会自动创建容器并安装 AdGuard Home，访问 `http://<容器IP>:3000` 完成初始化配置。
 
-脚本会引导您完成以下配置：
+**配置规则**: 参考 [AdGuard Home 规则文档](docs/adguardhome-rules.md)
 
-1. **容器 ID**: 输入或使用系统建议的 ID
-2. **容器名称**: 默认为 `mihomo`
-3. **存储位置**: 选择存储位置（如 local-lvm）
-4. **磁盘大小**: 默认 4GB
-5. **CPU 核心数**: 默认 2 核
-6. **内存大小**: 默认 1024MB
-7. **网络配置**: 选择 DHCP 或静态 IP
-8. **Root 密码**: 设置容器的 root 密码
+### 完整方案（推荐）
+
+1. **部署 mihomo** - 提供代理服务
+2. **部署 AdGuard Home** - 提供广告过滤
+3. **配置 AdGuard 上游 DNS** - 指向 mihomo 的 DNS 端口 (mihomo 容器IP:53)
+4. **配置设备 DNS** - 指向 AdGuard Home (AdGuard 容器IP:53)
+
+这样可以实现：**广告过滤 + 智能分流 + DNS 无污染**
 
 ## 📁 项目结构
 
@@ -58,13 +71,20 @@ chmod +x create-mihomo-lxc.sh
 boomdns/
 ├── README.md                          # 项目说明文档
 ├── scripts/
-│   ├── create-mihomo-lxc.sh          # 主部署脚本（推荐使用）
+│   ├── create-mihomo-lxc.sh          # ⭐ mihomo 部署脚本
+│   ├── create-adguardhome-lxc.sh     # ⭐ AdGuard Home 部署脚本
 │   ├── ct/
 │   │   └── mihomo.sh                 # CT 容器脚本
 │   ├── install/
 │   │   └── mihomo-install.sh         # mihomo 安装脚本
-│   └── misc/                          # 其他工具脚本
-└── docs/                              # 文档目录
+│   └── misc/
+│       ├── update-mihomo.sh          # mihomo 更新脚本
+│       └── setup-adguard-rules.sh    # AdGuard 规则配置
+└── docs/
+    ├── QUICKSTART.md                  # 快速入门指南
+    ├── USAGE.md                       # 详细使用文档
+    ├── adguardhome-rules.md           # AdGuard 规则配置
+    └── config-examples.yaml           # mihomo 配置示例
 ```
 
 ## 🔧 配置说明
