@@ -1,5 +1,9 @@
 # mihomo + AdGuard Home 组合方案指南
 
+> 💡 **推荐**: 如果您使用 10.0.0.x 网段，请优先查看：
+> - [QUICK-REFERENCE.md](QUICK-REFERENCE.md) - 基于您网络环境的快速参考 ⭐
+> - [DEPLOYMENT-GUIDE.md](DEPLOYMENT-GUIDE.md) - 完整部署步骤
+
 本文档介绍如何将 mihomo 代理服务和 AdGuard Home 广告过滤组合使用，实现完美的网络体验。
 
 ## 🎯 方案架构
@@ -9,6 +13,13 @@
          ↓                           ↓
     过滤广告/追踪              国内直连/国外代理
 ```
+
+### 示例网络环境
+
+本文档使用 **10.0.0.x** 网段作为示例：
+- RouterOS: 10.0.0.2
+- mihomo: 10.0.0.4
+- AdGuard Home: 10.0.0.5
 
 ### 工作流程
 
@@ -26,7 +37,7 @@
 bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/create-mihomo-lxc.sh)
 ```
 
-**记录 mihomo 容器 IP**，例如：`192.168.1.100`
+**记录 mihomo IP**，例如：`10.0.0.4`
 
 ### 第二步：配置 mihomo
 
@@ -67,13 +78,13 @@ exit
 bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/create-adguardhome-lxc.sh)
 ```
 
-**记录 AdGuard Home 容器 IP**，例如：`192.168.1.101`
+**记录 AdGuard Home IP**，例如：`10.0.0.5`
 
 ### 第四步：配置 AdGuard Home
 
 #### 1. 完成初始化
 
-访问 `http://192.168.1.101:3000` 完成初始配置向导。
+访问 `http://10.0.0.5:3000` 完成初始配置向导。
 
 #### 2. 配置上游 DNS
 
@@ -83,7 +94,7 @@ bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/c
 
 ```
 # 主上游 DNS（mihomo）
-192.168.1.100:53
+10.0.0.4:53
 
 # 备用 DNS（可选，防止 mihomo 故障）
 223.5.5.5
@@ -113,8 +124,8 @@ bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/m
 将设备或路由器的 DNS 设置为 AdGuard Home 的 IP：
 
 ```
-主 DNS: 192.168.1.101
-备用 DNS: 192.168.1.101
+主 DNS: 10.0.0.5
+备用 DNS: 10.0.0.5
 ```
 
 #### 路由器配置（推荐）
@@ -124,11 +135,11 @@ bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/m
 **RouterOS (MikroTik) 配置**：
 
 ```bash
-# 设置路由器 DNS
-/ip dns set servers=192.168.1.101
+# 设置路由器 DNS（指向 AdGuard Home）
+/ip dns set servers=10.0.0.5
 
-# 设置 DHCP 分发 DNS
-/ip dhcp-server network set [find] dns-server=192.168.1.101
+# 设置 DHCP 分发 DNS（让所有设备使用 AdGuard Home）
+/ip dhcp-server network set [find] dns-server=10.0.0.5
 ```
 
 **完整 RouterOS 配置指南**: 参考 [ROUTEROS-CONFIG.md](ROUTEROS-CONFIG.md)
@@ -164,10 +175,10 @@ Wi-Fi 设置 → 配置 DNS → 手动 → 添加服务器
 
 ```bash
 # 测试 AdGuard Home
-nslookup google.com 192.168.1.101
+nslookup google.com 10.0.0.5
 
 # 测试 mihomo DNS
-nslookup google.com 192.168.1.100
+nslookup google.com 10.0.0.4
 ```
 
 ### 2. 测试广告拦截
@@ -188,7 +199,7 @@ curl -I https://google.com
 
 ### 4. 查看 AdGuard Home 统计
 
-访问：`http://192.168.1.101:3000`
+访问：`http://10.0.0.5:3000`
 
 查看仪表板，应该能看到：
 - 查询数量
@@ -200,9 +211,9 @@ curl -I https://google.com
 ### 方案 A：AdGuard Home 作为主 DNS（推荐）
 
 ```
-设备 → AdGuard Home (192.168.1.101:53)
+设备 → AdGuard Home (10.0.0.5:53)
          ↓ (上游)
-       mihomo (192.168.1.100:53)
+       mihomo (10.0.0.4:53)
          ↓
       互联网
 ```
@@ -217,7 +228,7 @@ curl -I https://google.com
 ### 方案 B：mihomo 作为主 DNS（高级）
 
 ```
-设备 → mihomo (192.168.1.100:53)
+设备 → mihomo (10.0.0.4:53)
          ↓
       AdGuard Home (通过代理规则分流)
          ↓
@@ -231,7 +242,7 @@ curl -I https://google.com
 dns:
   enable: true
   nameserver:
-    - 192.168.1.101  # AdGuard Home
+    - 10.0.0.5  # AdGuard Home
 ```
 
 2. 设备 DNS 指向 mihomo
@@ -249,8 +260,8 @@ dns:
 ### 方案 C：双栈配置（终极方案）
 
 ```
-设备 → DNS1: AdGuard Home (192.168.1.101)
-      → DNS2: mihomo (192.168.1.100)
+设备 → DNS1: AdGuard Home (10.0.0.5)
+      → DNS2: mihomo (10.0.0.4)
 ```
 
 **配置方法**：
@@ -321,8 +332,8 @@ pct exec <mihomo容器ID> -- systemctl status mihomo
 
 3. 测试 DNS：
 ```bash
-nslookup google.com 192.168.1.101
-nslookup google.com 192.168.1.100
+nslookup google.com 10.0.0.5
+nslookup google.com 10.0.0.4
 ```
 
 4. 查看日志：
@@ -411,7 +422,7 @@ CPU: 2 核
 确保容器之间网络延迟低：
 ```bash
 # 测试延迟
-pct exec <adguard容器ID> -- ping -c 10 192.168.1.100
+pct exec <adguard容器ID> -- ping -c 10 10.0.0.4
 ```
 
 ### 3. 日志管理

@@ -1,28 +1,29 @@
-# 使用指南
+# 使用指南 - mihomo 详细配置
 
-本文档提供 BoomDNS 项目的详细使用说明。
+> ⚠️ **注意**: 本文档主要介绍 mihomo 的配置和使用。
+> 
+> 完整部署指南请查看：
+> - [QUICK-REFERENCE.md](QUICK-REFERENCE.md) - 针对您的网络环境（10.0.0.x） ⭐ 推荐
+> - [DEPLOYMENT-GUIDE.md](DEPLOYMENT-GUIDE.md) - 虚拟机完整部署步骤
 
-## 🚀 快速开始
+本文档提供 mihomo 代理服务的详细配置说明。
 
-### 方法一：一键部署（推荐）
+## 🚀 部署方式
 
-在 Proxmox VE 主机的 Shell 中执行：
+### 方式一：虚拟机部署（适合 10.0.0.x 网络）
+
+在 Debian VM 中执行：
+
+```bash
+bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/install-mihomo-vm.sh)
+```
+
+### 方式二：LXC 容器部署
+
+在 Proxmox VE 主机执行：
 
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/create-mihomo-lxc.sh)
-```
-
-### 方法二：下载后执行
-
-```bash
-# 下载脚本
-wget https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/create-mihomo-lxc.sh
-
-# 添加执行权限
-chmod +x create-mihomo-lxc.sh
-
-# 执行脚本
-./create-mihomo-lxc.sh
 ```
 
 ## 📝 安装流程详解

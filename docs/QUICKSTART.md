@@ -1,6 +1,12 @@
-# 快速入门指南
+# 快速入门指南 - LXC 容器方式
 
-这是一个 5 分钟快速入门指南，帮助您快速部署 mihomo 代理服务。
+> ⚠️ **注意**: 本文档适用于 LXC 容器自动部署方式。
+> 
+> 如果您使用虚拟机部署，请查看：
+> - [QUICK-REFERENCE.md](QUICK-REFERENCE.md) - 针对 10.0.0.x 网段的快速参考 ⭐ 推荐
+> - [DEPLOYMENT-GUIDE.md](DEPLOYMENT-GUIDE.md) - 虚拟机完整部署指南
+
+这是一个 5 分钟快速入门指南，帮助您在 Proxmox 上通过 LXC 容器快速部署 mihomo 代理服务。
 
 ## 🚀 第一步：在 Proxmox 上部署
 

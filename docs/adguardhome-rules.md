@@ -1,5 +1,11 @@
 # AdGuard Home 广告过滤规则配置指南
 
+> 💡 **提示**: 本文档介绍广告过滤规则配置。
+> 
+> 完整部署请查看：
+> - [QUICK-REFERENCE.md](QUICK-REFERENCE.md) - 您的网络环境（10.0.0.x） ⭐
+> - [DEPLOYMENT-GUIDE.md](DEPLOYMENT-GUIDE.md) - 完整部署步骤
+
 本文档提供 AdGuard Home 的广告过滤规则配置方案，规则来源参考了优秀的开源项目。
 
 ## 📋 规则来源
