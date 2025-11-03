@@ -7,7 +7,11 @@
 ## 快速部署
 
 ```bash
-# 在 Proxmox 节点运行（需要 root）
+# 方式 1：下载后运行（推荐）
+curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/deploy.sh -o deploy.sh
+bash deploy.sh
+
+# 方式 2：直接运行
 curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/deploy.sh | bash
 ```
 

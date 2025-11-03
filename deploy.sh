@@ -56,6 +56,9 @@ function collect_info() {
     msg_step "收集配置信息..."
     echo ""
     
+    # 使用 /dev/tty 支持管道运行
+    exec < /dev/tty
+    
     read -p "Proxmox 节点 [$(hostname)]: " PVE_NODE
     PVE_NODE=${PVE_NODE:-$(hostname)}
     
