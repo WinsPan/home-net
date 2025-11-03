@@ -4,7 +4,16 @@
 
 ## 📖 项目简介
 
-BoomDNS 提供了一套自动化脚本，可以在 Proxmox VE 环境中一键创建 Debian LXC 容器并自动安装配置 mihomo (Clash Meta 内核)。项目设计参考了 [community-scripts/ProxmoxVE](https://github.com/community-scripts/ProxmoxVE) 的架构风格。
+BoomDNS 提供了一套完整的网络解决方案，包括：
+- **mihomo** (Clash Meta) - 智能代理和国内外分流
+- **AdGuard Home** - DNS级别广告过滤和隐私保护
+- **RouterOS 集成** - 主路由配置方案
+
+支持两种部署方式：
+1. **LXC 容器**（轻量级）- 自动创建和配置
+2. **虚拟机**（完整系统）- Debian 12 安装脚本
+
+项目设计参考了 [community-scripts/ProxmoxVE](https://github.com/community-scripts/ProxmoxVE) 的架构风格。
 
 ## ✨ 特性
 
@@ -32,29 +41,45 @@ BoomDNS 提供了一套自动化脚本，可以在 Proxmox VE 环境中一键创
 - 具有 root 权限的 SSH 访问
 - 互联网连接（用于下载模板和 mihomo）
 
-### 部署 mihomo 代理服务
+### 🅰️ 方式一：LXC 容器部署（推荐）
 
-在 Proxmox VE 主机上执行以下命令：
+#### 部署 mihomo 代理服务
+
+在 Proxmox VE 主机上执行：
 
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/create-mihomo-lxc.sh)
 ```
 
-脚本会自动创建容器并安装 mihomo，完成后可以通过 Web 面板 (Yacd) 管理代理。
+**详细文档**: [快速入门指南](docs/QUICKSTART.md) | [使用文档](docs/USAGE.md)
 
-**详细文档**: 查看 [快速入门指南](docs/QUICKSTART.md) 和 [使用文档](docs/USAGE.md)
+#### 部署 AdGuard Home 广告过滤
 
-### 部署 AdGuard Home 广告过滤
-
-在 Proxmox VE 主机上执行以下命令：
+在 Proxmox VE 主机上执行：
 
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/create-adguardhome-lxc.sh)
 ```
 
-脚本会自动创建容器并安装 AdGuard Home，访问 `http://<容器IP>:3000` 完成初始化配置。
+**配置规则**: [AdGuard Home 规则文档](docs/adguardhome-rules.md)
 
-**配置规则**: 参考 [AdGuard Home 规则文档](docs/adguardhome-rules.md)
+### 🅱️ 方式二：虚拟机部署（适合独立系统）
+
+#### 在 Debian 12 虚拟机上安装 mihomo
+
+```bash
+# 在 mihomo VM 中执行
+bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/install-mihomo-vm.sh)
+```
+
+#### 在 Debian 12 虚拟机上安装 AdGuard Home
+
+```bash
+# 在 AdGuard Home VM 中执行
+bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/install-adguardhome-vm.sh)
+```
+
+**完整部署指南**: [DEPLOYMENT-GUIDE.md](docs/DEPLOYMENT-GUIDE.md) - 包含虚拟机创建、网络配置等详细步骤
 
 ### 完整方案（推荐）
 
@@ -67,18 +92,40 @@ bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/c
 
 ### RouterOS (MikroTik) 主路由配置
 
-如果您使用 RouterOS 作为主路由，需要配置 DNS 和 DHCP 设置：
+如果您使用 RouterOS 作为主路由，需要配置 DNS 和 DHCP 设置。
 
-**基础配置（最简单）**：
-```bash
-# 设置路由器 DNS
-/ip dns set servers=192.168.1.101
+#### 示例网络环境
 
-# 设置 DHCP 分发 DNS
-/ip dhcp-server network set [find] dns-server=192.168.1.101
+假设您的网络规划如下：
+```
+RouterOS:        10.0.0.2
+mihomo VM:       10.0.0.4
+AdGuard Home VM: 10.0.0.5
 ```
 
-**详细配置**: 参考 [RouterOS 配置指南](docs/ROUTEROS-CONFIG.md)，包含：
+**基础配置**：
+```bash
+# 设置路由器 DNS（指向 AdGuard Home）
+/ip dns set servers=10.0.0.5
+
+# 设置 DHCP 分发 DNS（让所有设备自动使用 AdGuard Home）
+/ip dhcp-server network set [find] dns-server=10.0.0.5
+
+# 为虚拟机绑定静态 IP（推荐）
+/ip dhcp-server lease add address=10.0.0.4 mac-address=XX:XX:XX:XX:XX:XX comment="mihomo VM"
+/ip dhcp-server lease add address=10.0.0.5 mac-address=XX:XX:XX:XX:XX:XX comment="AdGuard Home VM"
+```
+
+**数据流向**：
+```
+设备 → AdGuard Home (10.0.0.5) → mihomo (10.0.0.4) → 互联网
+      ↓                           ↓
+   过滤广告                    智能分流
+```
+
+**详细配置**: 参考 [RouterOS 配置指南](docs/ROUTEROS-CONFIG.md) 和 [完整部署指南](docs/DEPLOYMENT-GUIDE.md)
+
+包含：
 - DNS 劫持（强制）
 - 透明代理
 - 防火墙规则
@@ -91,18 +138,21 @@ bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/c
 boomdns/
 ├── README.md                          # 项目说明文档
 ├── scripts/
-│   ├── create-mihomo-lxc.sh          # ⭐ mihomo 部署脚本
-│   ├── create-adguardhome-lxc.sh     # ⭐ AdGuard Home 部署脚本
+│   ├── create-mihomo-lxc.sh          # ⭐ LXC: mihomo 自动部署
+│   ├── create-adguardhome-lxc.sh     # ⭐ LXC: AdGuard Home 自动部署
+│   ├── install-mihomo-vm.sh          # ⭐ VM: mihomo 安装脚本
+│   ├── install-adguardhome-vm.sh     # ⭐ VM: AdGuard Home 安装脚本
 │   ├── ct/
 │   │   └── mihomo.sh                 # CT 容器脚本
 │   ├── install/
-│   │   └── mihomo-install.sh         # mihomo 安装脚本
+│   │   └── mihomo-install.sh         # mihomo LXC 安装脚本
 │   └── misc/
 │       ├── update-mihomo.sh          # mihomo 更新脚本
 │       └── setup-adguard-rules.sh    # AdGuard 规则配置
 └── docs/
     ├── QUICKSTART.md                  # 快速入门指南
     ├── USAGE.md                       # 详细使用文档
+    ├── DEPLOYMENT-GUIDE.md            # 完整部署指南（VM方式）
     ├── adguardhome-rules.md           # AdGuard 规则配置
     ├── INTEGRATION-GUIDE.md           # 组合方案指南
     ├── ROUTEROS-CONFIG.md             # RouterOS 配置指南
