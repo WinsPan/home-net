@@ -45,6 +45,20 @@ function check_env() {
         exit 1
     fi
     
+    # 检查必要的工具
+    local missing=""
+    for cmd in wget curl sshpass; do
+        if ! command -v $cmd &>/dev/null; then
+            missing="$missing $cmd"
+        fi
+    done
+    
+    if [ -n "$missing" ]; then
+        msg_error "缺少必要工具:$missing"
+        msg_info "安装: apt-get install -y wget curl sshpass"
+        exit 1
+    fi
+    
     msg_success "环境检查通过"
 }
 
@@ -101,7 +115,20 @@ function download_image() {
         return 0
     fi
     
-    wget -q --show-progress -O "$file" "$url" || exit 1
+    msg_info "下载中... (约 500MB，可能需要几分钟)"
+    if ! wget -q --show-progress -O "$file" "$url" 2>&1; then
+        msg_error "镜像下载失败"
+        msg_info "请检查网络或手动下载到: $file"
+        exit 1
+    fi
+    
+    # 验证文件
+    if [ ! -s "$file" ]; then
+        msg_error "下载的镜像文件无效"
+        rm -f "$file"
+        exit 1
+    fi
+    
     msg_success "下载完成"
 }
 

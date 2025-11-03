@@ -47,16 +47,28 @@ function install_mihomo() {
     msg_info "安装 mihomo..."
     
     # 获取最新版本
+    msg_info "获取最新版本..."
     VERSION=$(curl -s "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest" | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
-    [ -z "$VERSION" ] && msg_error "获取版本失败"
+    if [ -z "$VERSION" ]; then
+        msg_error "获取版本失败，请检查网络或 GitHub API 限流"
+    fi
+    msg_ok "版本: ${VERSION}"
     
     # 下载
     URL="https://github.com/MetaCubeX/mihomo/releases/download/${VERSION}/mihomo-${ARCH}-${VERSION}.gz"
-    wget -q --show-progress "$URL" -O /tmp/mihomo.gz
+    msg_info "下载 mihomo..."
+    if ! wget -q --show-progress "$URL" -O /tmp/mihomo.gz 2>&1; then
+        msg_error "下载失败，请检查网络连接"
+    fi
+    
+    # 验证下载
+    if [ ! -s /tmp/mihomo.gz ]; then
+        msg_error "下载的文件无效"
+    fi
     
     # 安装
-    gunzip -f /tmp/mihomo.gz
-    install -m 755 /tmp/mihomo /usr/local/bin/mihomo
+    gunzip -f /tmp/mihomo.gz || msg_error "解压失败"
+    install -m 755 /tmp/mihomo /usr/local/bin/mihomo || msg_error "安装失败"
     rm -f /tmp/mihomo
     
     msg_ok "mihomo 安装完成 (${VERSION})"
@@ -69,6 +81,15 @@ function setup_config() {
     
     # 从环境变量获取订阅
     SUBSCRIPTION_URL="${AUTO_SUBSCRIPTION_URL}"
+    
+    # 验证订阅 URL
+    if [ -z "$SUBSCRIPTION_URL" ]; then
+        msg_error "订阅地址为空"
+    fi
+    
+    if [[ ! "$SUBSCRIPTION_URL" =~ ^https?:// ]]; then
+        msg_error "订阅地址格式错误（需要 http:// 或 https://）"
+    fi
     
     # 生成配置
     cat > /etc/mihomo/config.yaml <<EOF
@@ -147,9 +168,19 @@ EOF
 
     systemctl daemon-reload
     systemctl enable mihomo
+    
+    msg_info "启动服务..."
     systemctl start mihomo
     
-    msg_ok "服务启动完成"
+    # 等待服务启动
+    sleep 3
+    
+    # 检查服务状态
+    if systemctl is-active --quiet mihomo; then
+        msg_ok "服务启动成功"
+    else
+        msg_error "服务启动失败，查看日志: journalctl -u mihomo -n 50"
+    fi
 }
 
 function create_update_script() {

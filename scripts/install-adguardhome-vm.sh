@@ -48,10 +48,18 @@ function install_adguard() {
     
     # 下载
     URL="https://static.adguard.com/adguardhome/release/AdGuardHome_${ARCH}.tar.gz"
-    wget -q --show-progress "$URL" -O /tmp/adguardhome.tar.gz
+    msg_info "下载中..."
+    if ! wget -q --show-progress "$URL" -O /tmp/adguardhome.tar.gz 2>&1; then
+        msg_error "下载失败，请检查网络连接"
+    fi
+    
+    # 验证下载
+    if [ ! -s /tmp/adguardhome.tar.gz ]; then
+        msg_error "下载的文件无效"
+    fi
     
     # 安装
-    tar -xzf /tmp/adguardhome.tar.gz -C /opt/
+    tar -xzf /tmp/adguardhome.tar.gz -C /opt/ || msg_error "解压失败"
     rm -f /tmp/adguardhome.tar.gz
     
     msg_ok "AdGuard Home 安装完成"
@@ -61,13 +69,25 @@ function setup_service() {
     msg_info "配置服务..."
     
     # 安装服务
-    /opt/AdGuardHome/AdGuardHome -s install
+    if ! /opt/AdGuardHome/AdGuardHome -s install &>/dev/null; then
+        msg_error "服务安装失败（可能端口 53 被占用）"
+    fi
     
     # 启动
     systemctl enable AdGuardHome
+    
+    msg_info "启动服务..."
     systemctl start AdGuardHome
     
-    msg_ok "服务启动完成"
+    # 等待服务启动
+    sleep 3
+    
+    # 检查服务状态
+    if systemctl is-active --quiet AdGuardHome; then
+        msg_ok "服务启动成功"
+    else
+        msg_error "服务启动失败，查看日志: journalctl -u AdGuardHome -n 50"
+    fi
 }
 
 function setup_rules() {
