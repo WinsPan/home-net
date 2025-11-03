@@ -84,6 +84,11 @@ curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/insta
 
 ### 新手必读
 - **[完整部署指南](GUIDE.md)** ⭐ **强烈推荐 - 详细的分步指南**
+- **[快速参考卡片](CHEATSHEET.md)** 🔖 **常用命令速查**
+
+### 实用工具
+- **验证部署** - `bash scripts/verify-deployment.sh` - 自动测试所有功能
+- **故障诊断** - `bash scripts/diagnose.sh` - 自动诊断问题并给出解决方案
 
 ### 进阶配置
 - [完整配置文档](docs/CONFIG.md) - mihomo + AdGuard Home + RouterOS 详细配置

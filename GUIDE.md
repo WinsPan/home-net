@@ -503,7 +503,34 @@ ssh admin@你的RouterOS-IP
 
 ## 第五步：测试验证
 
-### 5.1 测试 DNS
+### 5.0 自动验证（推荐）⭐
+
+**下载验证脚本并运行：**
+
+```bash
+# 下载验证脚本
+curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/verify-deployment.sh -o verify.sh
+
+# 运行验证
+bash verify.sh
+```
+
+脚本会自动测试：
+- ✅ 网络连接
+- ✅ mihomo 服务和代理
+- ✅ AdGuard Home 服务和 DNS
+- ✅ RouterOS 连接
+- ✅ DNS 劫持
+- ✅ 广告拦截
+- ✅ 智能分流
+
+**如果所有测试通过，部署成功！**
+
+---
+
+### 5.1 手动测试 DNS（可选）
+
+如果自动验证失败，可以手动测试：
 
 **在任意客户端：**
 
@@ -604,6 +631,26 @@ http://10.0.0.5
 ---
 
 ## 常见问题快速解决
+
+### 🔧 自动诊断工具（推荐）⭐
+
+遇到问题？先运行诊断工具：
+
+```bash
+# 下载诊断脚本
+curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/diagnose.sh -o diagnose.sh
+
+# 运行诊断
+bash diagnose.sh
+```
+
+诊断工具会：
+- 🔍 检查所有服务状态
+- 🔍 测试网络连接
+- 🔍 诊断常见问题
+- 💡 给出解决方案
+
+---
 
 ### ❌ 问题：无法上网
 
