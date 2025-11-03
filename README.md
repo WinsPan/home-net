@@ -6,22 +6,41 @@
 
 ## 快速开始
 
-### 一键部署（在 Proxmox 节点上运行）
+### 方式 A：完全自动（推荐）⭐
+
+使用 cloud-init 镜像，无需手动操作：
+
+```bash
+# 下载脚本
+curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/deploy-auto.sh -o deploy-auto.sh
+
+# 运行（在 Proxmox 节点，需要 root）
+bash deploy-auto.sh
+```
+
+**特点：**
+- ✅ 完全自动 - 零交互
+- ✅ 自动下载 cloud-init 镜像
+- ✅ 自动创建和配置 VM
+- ✅ 自动安装所有服务
+- ⏱️ 时间：10-15 分钟
+
+### 方式 B：标准部署
+
+使用 Debian ISO，需要手动安装系统：
 
 ```bash
 # 下载脚本
 curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/deploy.sh -o deploy.sh
 
-# 运行（需要 root 权限）
+# 运行（在 Proxmox 节点，需要 root）
 bash deploy.sh
 ```
 
-**脚本会自动：**
-- ✅ 创建 2 个 VM
-- ✅ 安装 Debian 系统（需要手动完成安装向导）
-- ✅ 配置网络
-- ✅ 安装 mihomo + AdGuard Home
-- ✅ 生成 RouterOS 配置
+**特点：**
+- ✅ 使用标准 Debian ISO
+- ⚠️ 需要手动完成系统安装
+- ⏱️ 时间：15-20 分钟
 
 ---
 
@@ -96,6 +115,15 @@ EasyList: https://easylist-downloads.adblockplus.org/easylistchina.txt
 ---
 
 ## 测试验证
+
+### 快速测试
+
+```bash
+# 下载测试脚本
+curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/test-deployment.sh | bash
+```
+
+### 手动测试
 
 ```bash
 # 测试代理
