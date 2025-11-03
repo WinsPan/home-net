@@ -56,8 +56,8 @@ function collect_info() {
     msg_step "收集配置信息..."
     echo ""
     
-    # 使用 /dev/tty 支持管道运行
-    exec < /dev/tty
+    # 保存原始 stdin 并重定向到 /dev/tty
+    exec 3<&0 < /dev/tty
     
     read -p "Proxmox 节点 [$(hostname)]: " PVE_NODE
     PVE_NODE=${PVE_NODE:-$(hostname)}
@@ -94,6 +94,9 @@ function collect_info() {
     
     read -p "确认？(y/n): " confirm
     [[ ! $confirm =~ ^[Yy]$ ]] && exit 1
+    
+    # 恢复原始 stdin
+    exec 0<&3 3<&-
 }
 
 function download_cloud_image() {
@@ -107,8 +110,14 @@ function download_cloud_image() {
         return 0
     fi
     
-    msg_info "下载中... (约 500MB)"
-    wget -q --show-progress -O "$image_file" "$image_url"
+    msg_info "下载中... (约 500MB，可能需要几分钟)"
+    
+    if ! wget -q --show-progress -O "$image_file" "$image_url" 2>&1; then
+        msg_error "镜像下载失败"
+        msg_info "请检查网络连接或手动下载镜像到: $image_file"
+        exit 1
+    fi
+    
     msg_success "下载完成"
 }
 
@@ -254,22 +263,26 @@ function main() {
     check_proxmox
     collect_info
     
+    echo ""
+    msg_step "开始自动部署..."
+    echo ""
+    
     # 下载镜像
-    download_cloud_image
+    download_cloud_image || exit 1
     
     # 创建 VM
-    create_cloud_init_vm ${MIHOMO_VMID} "mihomo" 2 2048 20 ${MIHOMO_IP}
-    create_cloud_init_vm ${ADGUARD_VMID} "adguardhome" 1 1024 10 ${ADGUARD_IP}
+    create_cloud_init_vm ${MIHOMO_VMID} "mihomo" 2 2048 20 ${MIHOMO_IP} || exit 1
+    create_cloud_init_vm ${ADGUARD_VMID} "adguardhome" 1 1024 10 ${ADGUARD_IP} || exit 1
     
     # 启动并等待
-    start_and_wait ${MIHOMO_VMID} ${MIHOMO_IP} "mihomo"
-    start_and_wait ${ADGUARD_VMID} ${ADGUARD_IP} "adguardhome"
+    start_and_wait ${MIHOMO_VMID} ${MIHOMO_IP} "mihomo" || exit 1
+    start_and_wait ${ADGUARD_VMID} ${ADGUARD_IP} "adguardhome" || exit 1
     
     # 安装服务
-    install_services
+    install_services || exit 1
     
     # 生成配置
-    generate_config
+    generate_config || exit 1
     
     # 显示总结
     show_summary
