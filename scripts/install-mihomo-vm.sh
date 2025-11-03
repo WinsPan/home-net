@@ -430,9 +430,9 @@ function show_result() {
     echo "╚══════════════════════════════════════════════════════╝"
     echo ""
     echo -e "${GREEN}服务信息:${NC}"
-    echo "  HTTP 代理: http://10.0.0.4:7890"
-    echo "  SOCKS5: socks5://10.0.0.4:7891"
-    echo "  API: http://10.0.0.4:9090"
+    echo "  HTTP 代理: http://10.0.0.3:7890"
+    echo "  SOCKS5: socks5://10.0.0.3:7891"
+    echo "  API: http://10.0.0.3:9090"
     
     if [ "$CONFIG_TYPE" = "smart" ]; then
         echo "  API 密钥: ${API_SECRET}"
@@ -454,7 +454,7 @@ function show_result() {
     echo "  更新: /opt/mihomo/update-mihomo.sh"
     echo ""
     echo -e "${BLUE}测试:${NC}"
-    echo "  curl -x http://10.0.0.4:7890 https://www.google.com -I"
+    echo "  curl -x http://10.0.0.3:7890 https://www.google.com -I"
     echo ""
 }
 

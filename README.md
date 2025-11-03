@@ -35,8 +35,8 @@ curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/test-deployme
 ## 服务访问
 
 ```
-mihomo 面板:    http://10.0.0.4:9090
-AdGuard Home:   http://10.0.0.5:3000
+mihomo 面板:    http://10.0.0.3:9090
+AdGuard Home:   http://10.0.0.4:3000
 ```
 
 ---
@@ -46,7 +46,7 @@ AdGuard Home:   http://10.0.0.5:3000
 ### 方式 1：手动代理（推荐）
 
 在客户端设置代理：
-- 代理地址: `10.0.0.4`
+- 代理地址: `10.0.0.3`
 - 代理端口: `7890`
 
 ### 方式 2：透明代理（高级）
@@ -59,8 +59,8 @@ AdGuard Home:   http://10.0.0.5:3000
 
 ```
 RouterOS:      10.0.0.2
-mihomo:        10.0.0.4
-AdGuard Home:  10.0.0.5
+mihomo:        10.0.0.3
+AdGuard Home:  10.0.0.4
 ```
 
 ---
@@ -69,7 +69,7 @@ AdGuard Home:  10.0.0.5
 
 ```bash
 # 更新 mihomo
-ssh root@10.0.0.4
+ssh root@10.0.0.3
 bash /root/scripts/update-mihomo.sh
 
 # 查看日志

@@ -7,15 +7,15 @@ mihomo + AdGuard Home + RouterOS 配置指南
 ## 网络架构
 
 ```
-客户端 → RouterOS (10.0.0.2) → AdGuard (10.0.0.5) → 互联网
+客户端 → RouterOS (10.0.0.2) → AdGuard (10.0.0.4) → 互联网
                  ↓
-            mihomo (10.0.0.4) 代理
+            mihomo (10.0.0.3) 代理
 ```
 
 **IP 规划：**
 - RouterOS: 10.0.0.2
-- mihomo: 10.0.0.4
-- AdGuard Home: 10.0.0.5
+- mihomo: 10.0.0.3
+- AdGuard Home: 10.0.0.4
 
 ---
 
@@ -106,7 +106,7 @@ rules:
 ### 更新订阅
 
 ```bash
-ssh root@10.0.0.4
+ssh root@10.0.0.3
 bash /root/scripts/update-mihomo.sh
 ```
 
@@ -116,7 +116,7 @@ bash /root/scripts/update-mihomo.sh
 
 ### Web 初始化
 
-1. 访问：http://10.0.0.5:3000
+1. 访问：http://10.0.0.4:3000
 2. 设置管理员账号密码
 3. 监听端口保持默认（53）
 
@@ -161,15 +161,15 @@ https://raw.githubusercontent.com/Aethersailor/Custom_OpenClash_Rules/main/rule_
 
 ```routeros
 # DNS 配置
-/ip dns set servers=10.0.0.5,223.5.5.5,119.29.29.29
+/ip dns set servers=10.0.0.4,223.5.5.5,119.29.29.29
 
 # DHCP 配置
 /ip pool add name=dhcp-pool ranges=10.0.0.100-10.0.0.200
 /ip dhcp-server add name=dhcp1 interface=bridge address-pool=dhcp-pool
-/ip dhcp-server network add address=10.0.0.0/24 gateway=10.0.0.2 dns-server=10.0.0.5
+/ip dhcp-server network add address=10.0.0.0/24 gateway=10.0.0.2 dns-server=10.0.0.4
 
 # DNS 劫持（强制使用 AdGuard）
-/ip firewall nat add chain=dstnat protocol=udp dst-port=53 dst-address=!10.0.0.5 action=dst-nat to-addresses=10.0.0.5 comment="DNS Hijack"
+/ip firewall nat add chain=dstnat protocol=udp dst-port=53 dst-address=!10.0.0.4 action=dst-nat to-addresses=10.0.0.4 comment="DNS Hijack"
 
 # 防火墙
 /ip firewall filter add chain=input connection-state=established,related action=accept
@@ -181,7 +181,7 @@ https://raw.githubusercontent.com/Aethersailor/Custom_OpenClash_Rules/main/rule_
 
 # 健康检查（容错）
 /system script add name=check-adguard source={
-    :if ([/ping 10.0.0.5 count=2] = 0) do={
+    :if ([/ping 10.0.0.4 count=2] = 0) do={
         /ip firewall nat disable [find comment="DNS Hijack"]
     } else={
         /ip firewall nat enable [find comment="DNS Hijack"]
@@ -199,10 +199,10 @@ https://raw.githubusercontent.com/Aethersailor/Custom_OpenClash_Rules/main/rule_
 /ip firewall mangle add chain=prerouting src-address=10.0.0.0/24 src-address-list=!no-proxy action=mark-routing new-routing-mark=proxy-route passthrough=yes
 
 # 路由到 mihomo
-/ip route add dst-address=0.0.0.0/0 gateway=10.0.0.4 routing-mark=proxy-route
+/ip route add dst-address=0.0.0.0/0 gateway=10.0.0.3 routing-mark=proxy-route
 
 # 重定向到 mihomo
-/ip firewall nat add chain=dstnat protocol=tcp src-address=10.0.0.0/24 action=dst-nat to-addresses=10.0.0.4 to-ports=7890
+/ip firewall nat add chain=dstnat protocol=tcp src-address=10.0.0.0/24 action=dst-nat to-addresses=10.0.0.3 to-ports=7890
 
 # 排除列表（不需要代理的设备）
 /ip firewall address-list add list=no-proxy address=10.0.0.1
@@ -216,7 +216,7 @@ https://raw.githubusercontent.com/Aethersailor/Custom_OpenClash_Rules/main/rule_
 ### 方式 1：手动代理（推荐）
 
 在客户端设置：
-- 代理服务器：`10.0.0.4`
+- 代理服务器：`10.0.0.3`
 - 代理端口：`7890`
 
 **各平台设置：**
@@ -224,21 +224,21 @@ https://raw.githubusercontent.com/Aethersailor/Custom_OpenClash_Rules/main/rule_
 **Windows：**
 ```
 设置 → 网络和Internet → 代理 → 手动设置代理
-服务器：10.0.0.4
+服务器：10.0.0.3
 端口：7890
 ```
 
 **macOS：**
 ```
 系统偏好设置 → 网络 → 高级 → 代理
-HTTP 代理：10.0.0.4:7890
-HTTPS 代理：10.0.0.4:7890
+HTTP 代理：10.0.0.3:7890
+HTTPS 代理：10.0.0.3:7890
 ```
 
 **iOS/Android：**
 ```
 WiFi 设置 → 配置代理 → 手动
-服务器：10.0.0.4
+服务器：10.0.0.3
 端口：7890
 ```
 
@@ -261,21 +261,21 @@ curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/test-deployme
 
 ```bash
 # 测试代理
-curl -x http://10.0.0.4:7890 https://www.google.com -I
+curl -x http://10.0.0.3:7890 https://www.google.com -I
 
 # 测试 DNS
-nslookup google.com 10.0.0.5
+nslookup google.com 10.0.0.4
 
 # 测试分流
-curl -x http://10.0.0.4:7890 http://ip.sb  # 应该是代理 IP
+curl -x http://10.0.0.3:7890 http://ip.sb  # 应该是代理 IP
 curl http://ip.sb  # 应该是本地 IP
 ```
 
 ### 管理界面
 
 ```
-mihomo 面板:   http://10.0.0.4:9090
-AdGuard Home:  http://10.0.0.5:3000
+mihomo 面板:   http://10.0.0.3:9090
+AdGuard Home:  http://10.0.0.4:3000
 ```
 
 ---
@@ -285,7 +285,7 @@ AdGuard Home:  http://10.0.0.5:3000
 ### 更新 mihomo
 
 ```bash
-ssh root@10.0.0.4
+ssh root@10.0.0.3
 bash /root/scripts/update-mihomo.sh
 ```
 
@@ -303,10 +303,10 @@ journalctl -u AdGuardHome -f
 
 ```bash
 # mihomo
-scp root@10.0.0.4:/etc/mihomo/config.yaml ./backup/
+scp root@10.0.0.3:/etc/mihomo/config.yaml ./backup/
 
 # AdGuard Home
-scp root@10.0.0.5:/opt/AdGuardHome/AdGuardHome.yaml ./backup/
+scp root@10.0.0.4:/opt/AdGuardHome/AdGuardHome.yaml ./backup/
 ```
 
 ---
@@ -316,7 +316,7 @@ scp root@10.0.0.5:/opt/AdGuardHome/AdGuardHome.yaml ./backup/
 ### Q: 无法访问外网？
 
 A: 检查步骤：
-1. `curl -x http://10.0.0.4:7890 https://www.google.com -I` - 测试代理
+1. `curl -x http://10.0.0.3:7890 https://www.google.com -I` - 测试代理
 2. 检查 mihomo 订阅是否有效
 3. 检查节点是否可用
 
@@ -324,7 +324,7 @@ A: 检查步骤：
 
 A: 检查步骤：
 1. AdGuard Home 规则是否更新
-2. RouterOS DNS 是否指向 10.0.0.5
+2. RouterOS DNS 是否指向 10.0.0.4
 3. 客户端 DNS 是否正确
 
 ### Q: 代理很慢？
