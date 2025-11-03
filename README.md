@@ -54,6 +54,7 @@ curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/insta
 
 ## 文档
 
+- **[完整配置方案](docs/COMPLETE-CONFIG.md)** - ⭐ 分流+去广告+容错完整配置
 - **[部署指南](docs/DEPLOYMENT.md)** - 完整的部署步骤
 - **[RouterOS 配置](docs/ROUTEROS.md)** - 路由器详细配置
 - **[配置示例](docs/config-examples.yaml)** - mihomo 配置参考
