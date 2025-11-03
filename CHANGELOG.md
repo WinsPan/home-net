@@ -11,7 +11,26 @@
 - Web UI 管理界面
 - 一键订阅导入
 - 自动配置优化
-- 多节点负载均衡配置向导
+
+## [1.1.0] - 2024-11-03
+
+### 新增
+- ✨ 虚拟机部署方案（install-mihomo-vm.sh, install-adguardhome-vm.sh）
+- ✨ 针对 10.0.0.x 网段的完整部署指南（DEPLOYMENT-GUIDE.md）
+- ✨ 快速参考手册（QUICK-REFERENCE.md）
+- ✨ RouterOS (MikroTik) 详细配置指南（ROUTEROS-CONFIG.md）
+- ✨ mihomo + AdGuard Home 组合方案指南（INTEGRATION-GUIDE.md）
+- ✨ AdGuard Home 广告过滤功能和规则配置
+- ✨ 支持两种部署方式：LXC 容器和完整虚拟机
+
+### 改进
+- 📚 完善文档体系，针对不同场景提供专门指南
+- 🎯 针对实际网络环境（ROS + PVE VM）优化配置示例
+- 🔧 提供完整的故障排查和性能优化建议
+
+### 删除
+- 🗑️ 移除冗余的 CT 脚本和安装脚本
+- 🗑️ 清理不再使用的目录结构
 
 ## [1.0.0] - 2024-11-03
 

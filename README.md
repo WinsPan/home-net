@@ -137,25 +137,27 @@ AdGuard Home VM: 10.0.0.5
 ```
 boomdns/
 ├── README.md                          # 项目说明文档
-├── scripts/
+├── LICENSE                            # MIT 许可证
+├── CHANGELOG.md                       # 更新日志
+├── CONTRIBUTING.md                    # 贡献指南
+│
+├── scripts/                           # 部署脚本
 │   ├── create-mihomo-lxc.sh          # ⭐ LXC: mihomo 自动部署
 │   ├── create-adguardhome-lxc.sh     # ⭐ LXC: AdGuard Home 自动部署
 │   ├── install-mihomo-vm.sh          # ⭐ VM: mihomo 安装脚本
 │   ├── install-adguardhome-vm.sh     # ⭐ VM: AdGuard Home 安装脚本
-│   ├── ct/
-│   │   └── mihomo.sh                 # CT 容器脚本
-│   ├── install/
-│   │   └── mihomo-install.sh         # mihomo LXC 安装脚本
-│   └── misc/
+│   └── misc/                          # 工具脚本
 │       ├── update-mihomo.sh          # mihomo 更新脚本
 │       └── setup-adguard-rules.sh    # AdGuard 规则配置
-└── docs/
-    ├── QUICKSTART.md                  # 快速入门指南
-    ├── USAGE.md                       # 详细使用文档
-    ├── DEPLOYMENT-GUIDE.md            # 完整部署指南（VM方式）
-    ├── adguardhome-rules.md           # AdGuard 规则配置
-    ├── INTEGRATION-GUIDE.md           # 组合方案指南
+│
+└── docs/                              # 文档目录
+    ├── QUICK-REFERENCE.md             # ⭐ 快速参考（推荐）
+    ├── DEPLOYMENT-GUIDE.md            # ⭐ 完整部署指南（VM）
     ├── ROUTEROS-CONFIG.md             # RouterOS 配置指南
+    ├── INTEGRATION-GUIDE.md           # 组合方案指南
+    ├── adguardhome-rules.md           # AdGuard 规则配置
+    ├── QUICKSTART.md                  # LXC 快速入门
+    ├── USAGE.md                       # mihomo 详细使用
     └── config-examples.yaml           # mihomo 配置示例
 ```
 
