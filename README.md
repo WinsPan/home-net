@@ -65,6 +65,26 @@ bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/c
 
 这样可以实现：**广告过滤 + 智能分流 + DNS 无污染**
 
+### RouterOS (MikroTik) 主路由配置
+
+如果您使用 RouterOS 作为主路由，需要配置 DNS 和 DHCP 设置：
+
+**基础配置（最简单）**：
+```bash
+# 设置路由器 DNS
+/ip dns set servers=192.168.1.101
+
+# 设置 DHCP 分发 DNS
+/ip dhcp-server network set [find] dns-server=192.168.1.101
+```
+
+**详细配置**: 参考 [RouterOS 配置指南](docs/ROUTEROS-CONFIG.md)，包含：
+- DNS 劫持（强制）
+- 透明代理
+- 防火墙规则
+- 访客网络配置
+- 故障排查
+
 ## 📁 项目结构
 
 ```
@@ -84,6 +104,8 @@ boomdns/
     ├── QUICKSTART.md                  # 快速入门指南
     ├── USAGE.md                       # 详细使用文档
     ├── adguardhome-rules.md           # AdGuard 规则配置
+    ├── INTEGRATION-GUIDE.md           # 组合方案指南
+    ├── ROUTEROS-CONFIG.md             # RouterOS 配置指南
     └── config-examples.yaml           # mihomo 配置示例
 ```
 

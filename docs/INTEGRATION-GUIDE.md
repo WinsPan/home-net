@@ -121,7 +121,19 @@ bash <(curl -s https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/m
 
 在路由器的 DHCP 设置中配置 DNS，这样网络中所有设备都会自动使用。
 
-**常见路由器配置位置**：
+**RouterOS (MikroTik) 配置**：
+
+```bash
+# 设置路由器 DNS
+/ip dns set servers=192.168.1.101
+
+# 设置 DHCP 分发 DNS
+/ip dhcp-server network set [find] dns-server=192.168.1.101
+```
+
+**完整 RouterOS 配置指南**: 参考 [ROUTEROS-CONFIG.md](ROUTEROS-CONFIG.md)
+
+**其他常见路由器配置位置**：
 - OpenWrt: 网络 → 接口 → LAN → 编辑 → DHCP 服务器 → DNS 选项
 - 爱快: 网络设置 → DHCP 设置 → DNS 服务器
 - 梅林: 内部网络 → DHCP 服务器 → DNS 服务器
