@@ -1,0 +1,396 @@
+# mihomo 配置示例
+# 更多详细配置请参考: https://wiki.metacubex.one/
+
+# ==================== 基础配置 ====================
+
+# 混合端口 (HTTP + SOCKS5)
+mixed-port: 7890
+
+# HTTP 端口
+# port: 7891
+
+# SOCKS5 端口
+# socks-port: 7892
+
+# 允许局域网连接
+allow-lan: true
+
+# 绑定地址 (* 表示所有网卡)
+bind-address: "*"
+
+# 运行模式
+# rule: 规则模式
+# global: 全局代理
+# direct: 全局直连
+mode: rule
+
+# 日志级别
+# silent / error / warning / info / debug
+log-level: info
+
+# IPv6 支持
+ipv6: true
+
+# ==================== 外部控制器 ====================
+
+# RESTful API 监听地址
+external-controller: 0.0.0.0:9090
+
+# API 访问密钥 (可选，但强烈建议设置)
+secret: ""
+
+# 外部 UI 目录 (可选)
+# external-ui: /path/to/ui
+
+# ==================== DNS 配置 ====================
+
+dns:
+  enable: true
+  listen: 0.0.0.0:53
+  
+  # enhanced-mode: 增强模式
+  # fake-ip: 假 IP 模式，性能更好
+  # redir-host: 重定向模式，兼容性更好
+  enhanced-mode: fake-ip
+  
+  # Fake IP 地址池
+  fake-ip-range: 198.18.0.1/16
+  
+  # Fake IP 过滤列表
+  fake-ip-filter:
+    - '*.lan'
+    - 'localhost.ptlogin2.qq.com'
+    - '+.srv.nintendo.net'
+    - '+.stun.playstation.net'
+    - '+.msftconnecttest.com'
+    - '+.msftncsi.com'
+    - '+.xboxlive.com'
+    - 'msftconnecttest.com'
+    - 'xbox.*.microsoft.com'
+    - '*.battlenet.com.cn'
+    - '*.battlenet.com'
+    - '*.blzstatic.cn'
+    - '*.battle.net'
+  
+  # 默认 DNS 服务器 (用于解析 DNS 服务器域名)
+  default-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+    - 8.8.8.8
+  
+  # 主 DNS 服务器
+  nameserver:
+    - https://doh.pub/dns-query
+    - https://dns.alidns.com/dns-query
+    - 223.5.5.5
+    - 119.29.29.29
+  
+  # 备用 DNS 服务器
+  fallback:
+    - https://1.1.1.1/dns-query
+    - https://dns.google/dns-query
+    - 8.8.8.8
+    - 1.1.1.1
+  
+  # 备用 DNS 触发条件
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    ipcidr:
+      - 240.0.0.0/4
+
+# ==================== TUN 模式配置 ====================
+# 透明代理，需要 root 权限
+
+# tun:
+#   enable: true
+#   stack: system
+#   dns-hijack:
+#     - any:53
+#   auto-route: true
+#   auto-detect-interface: true
+
+# ==================== 代理配置 ====================
+
+proxies:
+  # Shadowsocks
+  - name: "SS-HK-01"
+    type: ss
+    server: hk.example.com
+    port: 8388
+    cipher: aes-256-gcm
+    password: "password"
+    udp: true
+
+  # Shadowsocks with plugin
+  - name: "SS-HK-02"
+    type: ss
+    server: hk.example.com
+    port: 443
+    cipher: aes-256-gcm
+    password: "password"
+    plugin: v2ray-plugin
+    plugin-opts:
+      mode: websocket
+      tls: true
+      host: hk.example.com
+
+  # VMess
+  - name: "VMess-US-01"
+    type: vmess
+    server: us.example.com
+    port: 443
+    uuid: "uuid-here"
+    alterId: 0
+    cipher: auto
+    tls: true
+    skip-cert-verify: false
+    network: ws
+    ws-opts:
+      path: /path
+      headers:
+        Host: us.example.com
+    udp: true
+
+  # Trojan
+  - name: "Trojan-JP-01"
+    type: trojan
+    server: jp.example.com
+    port: 443
+    password: "password"
+    sni: jp.example.com
+    skip-cert-verify: false
+    udp: true
+
+  # VLESS
+  - name: "VLESS-SG-01"
+    type: vless
+    server: sg.example.com
+    port: 443
+    uuid: "uuid-here"
+    network: ws
+    tls: true
+    udp: true
+    ws-opts:
+      path: /path
+      headers:
+        Host: sg.example.com
+
+  # Hysteria2
+  - name: "Hysteria2-01"
+    type: hysteria2
+    server: example.com
+    port: 443
+    password: "password"
+    sni: example.com
+    skip-cert-verify: false
+
+  # TUIC
+  - name: "TUIC-01"
+    type: tuic
+    server: example.com
+    port: 443
+    uuid: "uuid-here"
+    password: "password"
+    sni: example.com
+    skip-cert-verify: false
+    udp-relay-mode: native
+
+# ==================== 代理组配置 ====================
+
+proxy-groups:
+  # 手动选择代理
+  - name: "PROXY"
+    type: select
+    proxies:
+      - 自动选择
+      - 负载均衡
+      - 故障转移
+      - 香港节点
+      - 美国节点
+      - 日本节点
+      - 新加坡节点
+      - DIRECT
+
+  # 自动选择 - 根据延迟自动选择最快节点
+  - name: "自动选择"
+    type: url-test
+    proxies:
+      - SS-HK-01
+      - SS-HK-02
+      - VMess-US-01
+      - Trojan-JP-01
+      - VLESS-SG-01
+    url: 'http://www.gstatic.com/generate_204'
+    interval: 300
+    tolerance: 50
+
+  # 负载均衡 - 分散请求到多个节点
+  - name: "负载均衡"
+    type: load-balance
+    strategy: consistent-hashing
+    proxies:
+      - SS-HK-01
+      - SS-HK-02
+      - VMess-US-01
+      - Trojan-JP-01
+    url: 'http://www.gstatic.com/generate_204'
+    interval: 300
+
+  # 故障转移 - 按顺序选择可用节点
+  - name: "故障转移"
+    type: fallback
+    proxies:
+      - SS-HK-01
+      - SS-HK-02
+      - VMess-US-01
+    url: 'http://www.gstatic.com/generate_204'
+    interval: 300
+
+  # 地区分组
+  - name: "香港节点"
+    type: url-test
+    proxies:
+      - SS-HK-01
+      - SS-HK-02
+    url: 'http://www.gstatic.com/generate_204'
+    interval: 300
+
+  - name: "美国节点"
+    type: select
+    proxies:
+      - VMess-US-01
+
+  - name: "日本节点"
+    type: select
+    proxies:
+      - Trojan-JP-01
+
+  - name: "新加坡节点"
+    type: select
+    proxies:
+      - VLESS-SG-01
+
+  # 国际媒体
+  - name: "国际媒体"
+    type: select
+    proxies:
+      - PROXY
+      - 自动选择
+      - 香港节点
+      - 美国节点
+      - 日本节点
+      - DIRECT
+
+  # 苹果服务
+  - name: "Apple"
+    type: select
+    proxies:
+      - DIRECT
+      - PROXY
+      - 美国节点
+
+  # 微软服务
+  - name: "Microsoft"
+    type: select
+    proxies:
+      - DIRECT
+      - PROXY
+
+  # 国内服务
+  - name: "国内服务"
+    type: select
+    proxies:
+      - DIRECT
+      - PROXY
+
+# ==================== 规则配置 ====================
+
+rules:
+  # 局域网地址直连
+  - DOMAIN-SUFFIX,local,DIRECT
+  - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
+  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
+  - IP-CIDR,127.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR,100.64.0.0/10,DIRECT,no-resolve
+
+  # 广告拦截 (需要配合规则集)
+  # - RULE-SET,reject,REJECT
+
+  # 国际媒体
+  - DOMAIN-SUFFIX,youtube.com,国际媒体
+  - DOMAIN-SUFFIX,googlevideo.com,国际媒体
+  - DOMAIN-SUFFIX,netflix.com,国际媒体
+  - DOMAIN-SUFFIX,nflxvideo.net,国际媒体
+  - DOMAIN-SUFFIX,spotify.com,国际媒体
+  - DOMAIN-SUFFIX,twitch.tv,国际媒体
+  - DOMAIN-SUFFIX,twitter.com,PROXY
+  - DOMAIN-SUFFIX,x.com,PROXY
+  - DOMAIN-SUFFIX,facebook.com,PROXY
+  - DOMAIN-SUFFIX,instagram.com,PROXY
+  
+  # Google 服务
+  - DOMAIN-SUFFIX,google.com,PROXY
+  - DOMAIN-SUFFIX,googleapis.com,PROXY
+  - DOMAIN-SUFFIX,googleusercontent.com,PROXY
+  - DOMAIN-SUFFIX,gstatic.com,PROXY
+  - DOMAIN-SUFFIX,gmail.com,PROXY
+  
+  # GitHub
+  - DOMAIN-SUFFIX,github.com,PROXY
+  - DOMAIN-SUFFIX,githubusercontent.com,PROXY
+  - DOMAIN-SUFFIX,githubassets.com,PROXY
+  
+  # 苹果服务
+  - DOMAIN-SUFFIX,apple.com,Apple
+  - DOMAIN-SUFFIX,icloud.com,Apple
+  - DOMAIN-SUFFIX,appstore.com,Apple
+  
+  # 微软服务
+  - DOMAIN-SUFFIX,microsoft.com,Microsoft
+  - DOMAIN-SUFFIX,office.com,Microsoft
+  - DOMAIN-SUFFIX,live.com,Microsoft
+  - DOMAIN-SUFFIX,windows.com,Microsoft
+  
+  # 国内常用网站直连
+  - DOMAIN-SUFFIX,baidu.com,DIRECT
+  - DOMAIN-SUFFIX,qq.com,DIRECT
+  - DOMAIN-SUFFIX,taobao.com,DIRECT
+  - DOMAIN-SUFFIX,jd.com,DIRECT
+  - DOMAIN-SUFFIX,alipay.com,DIRECT
+  - DOMAIN-SUFFIX,weibo.com,DIRECT
+  - DOMAIN-SUFFIX,zhihu.com,DIRECT
+  - DOMAIN-SUFFIX,bilibili.com,DIRECT
+  
+  # GeoIP 中国直连
+  - GEOIP,CN,DIRECT
+  
+  # 其他所有请求
+  - MATCH,PROXY
+
+# ==================== 规则集配置 (高级) ====================
+# 需要下载对应的规则集文件
+
+# rule-providers:
+#   reject:
+#     type: http
+#     behavior: domain
+#     url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt"
+#     path: ./ruleset/reject.yaml
+#     interval: 86400
+#
+#   proxy:
+#     type: http
+#     behavior: domain
+#     url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/proxy.txt"
+#     path: ./ruleset/proxy.yaml
+#     interval: 86400
+#
+#   direct:
+#     type: http
+#     behavior: domain
+#     url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt"
+#     path: ./ruleset/direct.yaml
+#     interval: 86400
+
