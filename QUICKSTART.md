@@ -121,17 +121,20 @@ bash deploy.sh
 设置 → DNS 设置
 
 【上游 DNS 服务器】
-127.0.0.1:1053
+删除默认的，添加以下内容：
+
 https://doh.pub/dns-query
 https://dns.alidns.com/dns-query
 223.5.5.5
 119.29.29.29
 
-【Bootstrap DNS】
+【Bootstrap DNS 服务器】
 223.5.5.5
 119.29.29.29
 
-勾选：启用并行请求、启用 DNSSEC
+【勾选】
+☑ 启用并行请求
+☑ 启用 DNSSEC
 
 点击「保存」
 ```

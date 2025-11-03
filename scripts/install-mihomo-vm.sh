@@ -92,19 +92,25 @@ function create_directories() {
 }
 
 function choose_config_type() {
-    echo ""
-    echo "请选择配置类型："
-    echo ""
-    echo "  1) 💡 智能配置（推荐）"
-    echo "     - Smart 策略（自动选最快节点）"
-    echo "     - 负载均衡和故障转移"
-    echo "     - 动态规则更新"
-    echo ""
-    echo "  2) 📝 基础配置"
-    echo "     - 简单代理配置"
-    echo "     - 手动选择节点"
-    echo ""
-    read -p "请输入选择 [1/2]: " CONFIG_CHOICE
+    # 支持环境变量自动配置（用于自动化部署）
+    if [ -n "$AUTO_CONFIG_CHOICE" ]; then
+        CONFIG_CHOICE=$AUTO_CONFIG_CHOICE
+        msg_info "使用自动配置模式: 配置类型 = $CONFIG_CHOICE"
+    else
+        echo ""
+        echo "请选择配置类型："
+        echo ""
+        echo "  1) 💡 智能配置（推荐）"
+        echo "     - Smart 策略（自动选最快节点）"
+        echo "     - 负载均衡和故障转移"
+        echo "     - 动态规则更新"
+        echo ""
+        echo "  2) 📝 基础配置"
+        echo "     - 简单代理配置"
+        echo "     - 手动选择节点"
+        echo ""
+        read -p "请输入选择 [1/2]: " CONFIG_CHOICE
+    fi
     
     case $CONFIG_CHOICE in
         1) CONFIG_TYPE="smart" ;;
@@ -116,8 +122,14 @@ function choose_config_type() {
 function generate_smart_config() {
     msg_info "配置智能策略..."
     
-    echo ""
-    read -p "请输入机场订阅地址: " SUBSCRIPTION_URL
+    # 支持环境变量自动配置（用于自动化部署）
+    if [ -n "$AUTO_SUBSCRIPTION_URL" ]; then
+        SUBSCRIPTION_URL=$AUTO_SUBSCRIPTION_URL
+        msg_info "使用自动配置的订阅地址"
+    else
+        echo ""
+        read -p "请输入机场订阅地址: " SUBSCRIPTION_URL
+    fi
     
     if [ -z "$SUBSCRIPTION_URL" ]; then
         msg_error "订阅地址不能为空"
@@ -297,8 +309,14 @@ EOF
 function generate_basic_config() {
     msg_info "配置基础代理..."
     
-    echo ""
-    read -p "请输入机场订阅地址: " SUBSCRIPTION_URL
+    # 支持环境变量自动配置（用于自动化部署）
+    if [ -n "$AUTO_SUBSCRIPTION_URL" ]; then
+        SUBSCRIPTION_URL=$AUTO_SUBSCRIPTION_URL
+        msg_info "使用自动配置的订阅地址"
+    else
+        echo ""
+        read -p "请输入机场订阅地址: " SUBSCRIPTION_URL
+    fi
     
     if [ -z "$SUBSCRIPTION_URL" ]; then
         msg_error "订阅地址不能为空"

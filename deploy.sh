@@ -175,15 +175,9 @@ function deploy_mihomo() {
         return 1
     fi
     
-    msg_info "上传安装脚本..."
+    msg_info "下载安装脚本..."
     
-    # 创建配置文件
-    cat > /tmp/mihomo-auto-config.txt <<EOF
-1
-${SUBSCRIPTION_URL}
-EOF
-    
-    # 上传脚本
+    # 下载脚本
     if ! curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/install-mihomo-vm.sh -o /tmp/install-mihomo.sh; then
         msg_error "下载安装脚本失败"
         return 1
@@ -195,12 +189,9 @@ EOF
     sshpass -p "$MIHOMO_PASSWORD" scp -o StrictHostKeyChecking=no \
         /tmp/install-mihomo.sh root@${MIHOMO_IP}:/tmp/
     
-    # 执行安装
+    # 使用环境变量执行安装（非交互模式）
     sshpass -p "$MIHOMO_PASSWORD" ssh -o StrictHostKeyChecking=no root@${MIHOMO_IP} \
-        "bash /tmp/install-mihomo.sh" <<ANSWERS
-1
-${SUBSCRIPTION_URL}
-ANSWERS
+        "AUTO_CONFIG_CHOICE=1 AUTO_SUBSCRIPTION_URL='${SUBSCRIPTION_URL}' bash /tmp/install-mihomo.sh"
     
     if [ $? -eq 0 ]; then
         msg_success "mihomo 安装完成"
