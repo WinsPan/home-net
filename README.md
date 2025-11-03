@@ -33,13 +33,21 @@ BoomDNS 提供了一套完整的网络解决方案，包括：
 - ⚡ **性能优秀**: 低资源占用，快速响应
 - 🌍 **全局生效**: 保护网络中所有设备
 
+## 📖 文档导航
+
+> 💡 **不知道从哪开始？** 查看 [文档索引](docs/INDEX.md) - 根据您的场景找到正确的文档
+
+**针对您的网络环境（10.0.0.x + RouterOS + Debian VM）**：
+1. ⭐ [QUICK-REFERENCE.md](docs/QUICK-REFERENCE.md) - 快速参考（推荐先看）
+2. ⭐ [DEPLOYMENT-GUIDE.md](docs/DEPLOYMENT-GUIDE.md) - 完整部署步骤
+
 ## 🎯 快速开始
 
 ### 前置要求
 
 - Proxmox VE 8.x 或更高版本
 - 具有 root 权限的 SSH 访问
-- 互联网连接（用于下载模板和 mihomo）
+- 互联网连接
 
 ### 🅰️ 方式一：LXC 容器部署（推荐）
 
