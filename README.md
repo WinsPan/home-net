@@ -39,7 +39,7 @@ bash deploy.sh
 - ✅ 生成 RouterOS 配置
 - ✅ 验证部署
 
-**详细步骤** → [快速开始指南](QUICKSTART.md) 📖
+**详细步骤** → [快速开始](QUICKSTART.md) 📖
 
 ---
 
@@ -90,7 +90,7 @@ curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/insta
 - 或安装浏览器扩展：SwitchyOmega
 
 **方式 B：透明代理（高级）**
-- 查看 [完整部署指南](GUIDE.md)
+- 查看 [快速开始](QUICKSTART.md)
 
 ---
 
@@ -106,23 +106,21 @@ curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/insta
 
 ## 📚 文档
 
-### 新手必读
-- **[快速开始](QUICKSTART.md)** 🚀 **10 分钟一键部署**
-- **[完整部署指南](GUIDE.md)** 📖 **详细的分步指南**
-- **[快速参考卡片](CHEATSHEET.md)** 🔖 **常用命令速查**
+### 快速开始
+- **[快速开始指南](QUICKSTART.md)** 🚀 **10 分钟一键部署**
+- **[命令速查表](CHEATSHEET.md)** 🔖 **常用命令参考**
 
 ### 实用工具
-- **一键部署** - `bash deploy.sh` - 自动完成所有部署步骤 ⭐
-- **验证部署** - `bash scripts/verify-deployment.sh` - 自动测试所有功能
-- **故障诊断** - `bash scripts/diagnose.sh` - 自动诊断问题并给出解决方案
+- **一键部署** - `bash deploy.sh` - 自动完成所有步骤 ⭐
+- **验证部署** - `bash scripts/verify-deployment.sh` - 自动测试功能
+- **故障诊断** - `bash scripts/diagnose.sh` - 自动诊断问题
 
-### 进阶配置
-- [完整配置文档](docs/CONFIG.md) - mihomo + AdGuard Home + RouterOS 详细配置
-- [RouterOS 配置](docs/ROUTEROS.md) - 路由器高级功能
+### 高级配置
+- [完整配置文档](docs/CONFIG.md) - mihomo + AdGuard Home + RouterOS 配置
+- [RouterOS 配置](docs/ROUTEROS.md) - 路由器功能
 
-### 参考
-- [更新日志](CHANGELOG.md)
-- [贡献指南](CONTRIBUTING.md)
+### 其他
+- [更新日志](CHANGELOG.md) - 版本历史
 
 ---
 
@@ -165,7 +163,7 @@ curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/insta
 - 机场订阅（1 个即可）
 
 **Q: 多久能部署完成？**
-- 跟着 [完整部署指南](GUIDE.md) 操作：30-60 分钟
+- 跟着 [快速开始](QUICKSTART.md) 操作：10-30 分钟
 - 有经验的用户：15-30 分钟
 
 **Q: 服务挂掉会断网吗？**
@@ -217,7 +215,7 @@ journalctl -u mihomo -n 50
 curl -x http://10.0.0.4:7890 https://www.google.com -I
 ```
 
-**更多问题？** 查看 [完整部署指南](GUIDE.md) 的故障排查章节
+**更多问题？** 查看 [快速开始](QUICKSTART.md) 的故障排查章节
 
 ---
 
@@ -249,11 +247,13 @@ tar -czf ~/adguard-backup.tar.gz /opt/AdGuardHome
 
 ---
 
-## 参与贡献
+## 贡献
 
-欢迎提交 Issue 和 Pull Request！
+欢迎贡献！
 
-查看 [贡献指南](CONTRIBUTING.md)
+- 🐛 **报告问题**: [提交 Issue](https://github.com/WinsPan/home-net/issues)
+- 💡 **功能建议**: [提交 Issue](https://github.com/WinsPan/home-net/issues)
+- 🔧 **代码贡献**: Fork → 修改 → Pull Request
 
 ---
 
@@ -279,4 +279,4 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 ---
 
-**快速开始** → [完整部署指南](GUIDE.md)
+**快速开始** → [快速开始指南](QUICKSTART.md)

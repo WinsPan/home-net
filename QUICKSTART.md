@@ -246,9 +246,9 @@ curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/diagn
 ### 需要更多帮助
 
 **查看文档：**
-- [完整部署指南](GUIDE.md) - 详细步骤
 - [配置文档](docs/CONFIG.md) - 高级配置
-- [常用命令](CHEATSHEET.md) - 命令速查
+- [命令速查](CHEATSHEET.md) - 常用命令
+- [RouterOS 配置](docs/ROUTEROS.md) - 路由器功能
 
 ---
 
