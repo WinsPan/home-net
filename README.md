@@ -1,12 +1,40 @@
 # BoomDNS
 
-**智能分流 + 广告过滤 + 容错保护**的完整家庭网络解决方案
-
-一个命令，自动部署
+智能分流 + 广告过滤 + 容错保护 的家庭网络解决方案
 
 ---
 
-## 快速了解
+## 快速开始
+
+### 一键部署（在 Proxmox 节点上运行）
+
+```bash
+# 下载脚本
+curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/deploy.sh -o deploy.sh
+
+# 运行（需要 root 权限）
+bash deploy.sh
+```
+
+**脚本会自动：**
+- ✅ 创建 2 个 VM
+- ✅ 安装 Debian 系统（需要手动完成安装向导）
+- ✅ 配置网络
+- ✅ 安装 mihomo + AdGuard Home
+- ✅ 生成 RouterOS 配置
+
+---
+
+## 功能特性
+
+- 🚀 **智能分流** - 国内外自动识别
+- 🛡️ **广告过滤** - DNS 级别拦截
+- 🔄 **容错保护** - 服务故障不断网
+- ⚡ **一键部署** - 全自动化
+
+---
+
+## 架构
 
 ```
 设备 → RouterOS → mihomo → AdGuard Home → 互联网
@@ -14,246 +42,128 @@
      DNS劫持    智能分流      广告过滤
 ```
 
-**三个核心服务：**
-- 🚀 **mihomo** (10.0.0.4) - 智能代理和分流
-- 🛡️ **AdGuard Home** (10.0.0.5) - DNS 广告过滤
-- 🌐 **RouterOS** (10.0.0.2) - 网关和容错
+### 服务列表
+
+| 服务 | IP | 端口 | 说明 |
+|------|-----|------|------|
+| RouterOS | 10.0.0.2 | - | 网关 |
+| mihomo | 10.0.0.4 | 7890 | 代理 |
+| AdGuard Home | 10.0.0.5 | 53 | DNS |
 
 ---
 
-## 🚀 一键部署（推荐）⭐
+## 使用说明
 
-**最简单的方式 - 10 分钟完成！**
+### 1. 初始化 AdGuard Home
 
-```bash
-# 下载部署脚本
-curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/deploy.sh -o deploy.sh
+访问 `http://10.0.0.5:3000` 完成初始化
 
-# 运行部署
-bash deploy.sh
+**DNS 设置：**
+```
+上游 DNS：
+  https://doh.pub/dns-query
+  https://dns.alidns.com/dns-query
+  223.5.5.5
+  119.29.29.29
+
+Bootstrap DNS：
+  223.5.5.5
+  119.29.29.29
 ```
 
-**脚本会自动完成：**
-- ✅ 安装 mihomo
-- ✅ 安装 AdGuard Home
-- ✅ 生成 RouterOS 配置
-- ✅ 验证部署
-
-**详细步骤** → [快速开始](QUICKSTART.md) 📖
-
----
-
-## 手动部署（传统方式）
-
-### 三步部署
-
-### 1. 安装 mihomo
-
-```bash
-# 创建 Debian 12 VM (10.0.0.4, 2C2G, 20GB)
-# SSH 连接后执行：
-
-curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/install-mihomo-vm.sh | bash
-
-# 选择: 1 (智能配置)
-# 输入: 你的机场订阅地址
+**过滤规则：**
+```
+Anti-AD: https://anti-ad.net/easylist.txt
+AdGuard: https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt
+EasyList: https://easylist-downloads.adblockplus.org/easylistchina.txt
 ```
 
-### 2. 安装 AdGuard Home
+### 2. 配置 RouterOS
 
-```bash
-# 创建 Debian 12 VM (10.0.0.5, 1C1G, 10GB)
-# SSH 连接后执行：
+打开生成的 `routeros-config.rsc`，复制内容到 RouterOS 执行
 
-curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/scripts/install-adguardhome-vm.sh | bash
+**注意修改 WAN 口名称！**
 
-# 浏览器打开: http://10.0.0.5:3000
-# 完成初始化向导
-```
-
-### 3. 配置 RouterOS
-
-```bash
-# 连接 RouterOS，复制粘贴：
-
-/ip dns set servers=10.0.0.5,223.5.5.5,119.29.29.29
-/ip pool add name=dhcp-pool ranges=10.0.0.100-10.0.0.200
-/ip dhcp-server add name=dhcp1 interface=bridge address-pool=dhcp-pool
-/ip dhcp-server network add address=10.0.0.0/24 gateway=10.0.0.2 dns-server=10.0.0.5,223.5.5.5,119.29.29.29
-/ip firewall nat add chain=dstnat protocol=udp dst-port=53 dst-address=!10.0.0.5 action=dst-nat to-addresses=10.0.0.5 comment="DNS Hijack"
-```
-
-### 4. 设置代理（任选其一）
+### 3. 设置设备代理
 
 **方式 A：手动设置（推荐）**
-- 设备代理设置：`10.0.0.4:7890`
-- 或安装浏览器扩展：SwitchyOmega
+- 代理地址：`10.0.0.4:7890`
+- 浏览器推荐：SwitchyOmega 扩展
 
 **方式 B：透明代理（高级）**
-- 查看 [快速开始](QUICKSTART.md)
+- 查看 [docs/CONFIG.md](docs/CONFIG.md)
 
 ---
 
-## 完成！🎉
+## 测试验证
 
-**测试验证：**
-- ✅ 访问 http://testadblock.com 查看广告拦截
-- ✅ 访问 https://www.google.com 测试代理
-- ✅ 访问 http://10.0.0.4:9090 管理 mihomo
-- ✅ 访问 http://10.0.0.5 管理 AdGuard Home
+```bash
+# 测试代理
+curl -x http://10.0.0.4:7890 https://www.google.com -I
 
----
+# 测试广告拦截
+访问: http://testadblock.com
 
-## 📚 文档
-
-### 快速开始
-- **[快速开始指南](QUICKSTART.md)** 🚀 **10 分钟一键部署**
-- **[命令速查表](CHEATSHEET.md)** 🔖 **常用命令参考**
-
-### 实用工具
-- **一键部署** - `bash deploy.sh` - 自动完成所有步骤 ⭐
-- **验证部署** - `bash scripts/verify-deployment.sh` - 自动测试功能
-- **故障诊断** - `bash scripts/diagnose.sh` - 自动诊断问题
-
-### 高级配置
-- [完整配置文档](docs/CONFIG.md) - mihomo + AdGuard Home + RouterOS 配置
-- [RouterOS 配置](docs/ROUTEROS.md) - 路由器功能
-
-### 其他
-- [更新日志](CHANGELOG.md) - 版本历史
+# 管理界面
+mihomo:       http://10.0.0.4:9090
+AdGuard Home: http://10.0.0.5
+```
 
 ---
 
-## 核心特性
+## 维护
 
-### 💡 智能分流
-- **Smart 策略** - 自动选择最快节点
-- **负载均衡** - 多节点带宽叠加
-- **故障转移** - 自动切换备用节点
-- **地区分组** - 香港/新加坡/日本/美国
+### 更新 mihomo
+```bash
+ssh root@10.0.0.4
+/opt/mihomo/update-mihomo.sh
+```
 
-### 🛡️ 广告过滤
-- **DNS 级别** - 全设备生效
-- **多规则源** - Anti-AD + EasyList China
-- **自动更新** - 规则定时同步
-- **白名单** - 防止误拦截
+### 验证部署
+```bash
+bash scripts/verify-deployment.sh
+```
 
-### 🔄 容错保护
-- **多 DNS 备份** - 服务故障自动切换
-- **健康检查** - RouterOS 自动监控
-- **零中断** - 任何服务挂掉都不影响上网
+### 故障诊断
+```bash
+bash scripts/diagnose.sh
+```
+
+### 命令速查
+查看 [CHEATSHEET.md](CHEATSHEET.md)
 
 ---
 
-## 技术栈
+## 文档
 
-- **Proxmox VE 8+** - 虚拟化平台
-- **Debian 12** - 操作系统
-- **mihomo** - Clash Meta 代理内核
-- **AdGuard Home** - DNS 服务器
-- **RouterOS 7+** - MikroTik 路由器系统
+- [快速开始](QUICKSTART.md) - 详细部署指南
+- [命令速查](CHEATSHEET.md) - 常用命令
+- [完整配置](docs/CONFIG.md) - 高级配置
+- [RouterOS](docs/ROUTEROS.md) - 路由器配置
 
 ---
 
 ## 常见问题
 
 **Q: 需要什么硬件？**
-- Proxmox VE 服务器（任意配置）
-- MikroTik 路由器（支持 RouterOS 7+）
-- 机场订阅（1 个即可）
+- Proxmox VE 服务器
+- MikroTik RouterOS 路由器
+- 机场订阅
 
-**Q: 多久能部署完成？**
-- 跟着 [快速开始](QUICKSTART.md) 操作：10-30 分钟
-- 有经验的用户：15-30 分钟
+**Q: 部署需要多久？**
+- 自动部署：15-20 分钟（含系统安装）
+- 主要时间用于系统安装
 
-**Q: 服务挂掉会断网吗？**
-- 不会！已配置容错机制
-- mihomo 挂掉：失去代理功能，DNS 和上网正常
-- AdGuard 挂掉：失去广告过滤，自动切换备用 DNS
-- RouterOS 自动监控并切换
-
-**Q: 需要手动维护吗？**
-- 订阅自动更新（每小时）
-- 规则自动更新（每天）
-- 只需偶尔升级软件版本
-
-**Q: 支持哪些设备？**
-- Windows / macOS / Linux
-- iOS / Android
-- 智能电视 / 游戏机
-- 所有支持代理设置的设备
-
----
-
-## 故障排查
-
-### 无法上网
-```bash
-# RouterOS 检查
-/ip dns print
-# 应该显示: 10.0.0.5,223.5.5.5,119.29.29.29
-
-# 临时禁用 DNS 劫持
-/ip firewall nat disable [find comment="DNS Hijack"]
-```
-
-### 广告未拦截
-```
-1. 访问 http://10.0.0.5
-2. 过滤器 → 立即更新过滤器
-3. 清除浏览器 DNS 缓存
-```
-
-### 代理不工作
-```bash
-# 检查 mihomo
-ssh root@10.0.0.4
-systemctl status mihomo
-journalctl -u mihomo -n 50
-
-# 测试代理
-curl -x http://10.0.0.4:7890 https://www.google.com -I
-```
-
-**更多问题？** 查看 [快速开始](QUICKSTART.md) 的故障排查章节
-
----
-
-## 维护
-
-### 更新服务
-```bash
-# mihomo
-ssh root@10.0.0.4
-/opt/mihomo/update-mihomo.sh
-
-# AdGuard Home
-# 浏览器: http://10.0.0.5 → 设置 → 检查更新
-```
-
-### 备份配置
-```bash
-# mihomo
-ssh root@10.0.0.4
-tar -czf ~/mihomo-backup.tar.gz /etc/mihomo
-
-# AdGuard Home
-ssh root@10.0.0.5
-tar -czf ~/adguard-backup.tar.gz /opt/AdGuardHome
-
-# RouterOS
-/export file=router-backup
-```
+**Q: 服务挂了会断网吗？**
+- 不会，已配置容错机制
 
 ---
 
 ## 贡献
 
-欢迎贡献！
-
-- 🐛 **报告问题**: [提交 Issue](https://github.com/WinsPan/home-net/issues)
-- 💡 **功能建议**: [提交 Issue](https://github.com/WinsPan/home-net/issues)
-- 🔧 **代码贡献**: Fork → 修改 → Pull Request
+- 🐛 [报告问题](https://github.com/WinsPan/home-net/issues)
+- 💡 [功能建议](https://github.com/WinsPan/home-net/issues)
+- 🔧 贡献代码：Fork → PR
 
 ---
 
@@ -265,18 +175,11 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 ## 致谢
 
-- [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo) - Clash Meta 内核
-- [AdguardTeam/AdGuardHome](https://github.com/AdguardTeam/AdGuardHome) - DNS 服务器
-- [Loyalsoldier/clash-rules](https://github.com/Loyalsoldier/clash-rules) - 分流规则
-- [privacy-protection-tools/anti-AD](https://github.com/privacy-protection-tools/anti-AD) - 广告规则
-- [666OS/YYDS](https://github.com/666OS/YYDS) - 配置参考
+- [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo)
+- [AdguardTeam/AdGuardHome](https://github.com/AdguardTeam/AdGuardHome)
+- [Loyalsoldier/clash-rules](https://github.com/Loyalsoldier/clash-rules)
+- [privacy-protection-tools/anti-AD](https://github.com/privacy-protection-tools/anti-AD)
 
 ---
 
-## Star History
-
-⭐ 如果这个项目对你有帮助，欢迎 Star！
-
----
-
-**快速开始** → [快速开始指南](QUICKSTART.md)
+**项目地址：** https://github.com/WinsPan/home-net
