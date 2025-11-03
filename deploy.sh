@@ -73,21 +73,39 @@ function welcome() {
     cat <<EOF
 欢迎使用 BoomDNS 一键部署工具！
 
-本工具将自动完成以下步骤：
-  1. 配置 mihomo VM (${MIHOMO_IP})
-  2. 配置 AdGuard Home VM (${ADGUARD_IP})
-  3. 生成 RouterOS 配置脚本
+${RED}========== 重要：前置要求 ==========${NC}
+
+在运行此脚本前，你必须先完成以下准备工作：
+
+${YELLOW}第一步：在 Proxmox 创建两个 Debian 12 VM${NC}
+  VM 1: mihomo (10.0.0.4, 2C2G, 20GB)
+  VM 2: AdGuard Home (10.0.0.5, 1C1G, 10GB)
+
+${YELLOW}第二步：在两个 VM 上配置静态 IP${NC}
+  编辑 /etc/network/interfaces
+  设置对应的 IP 地址
+  重启网络服务
+
+${YELLOW}第三步：确保可以 SSH 访问${NC}
+  测试: ssh root@10.0.0.4
+  测试: ssh root@10.0.0.5
+
+${GREEN}详细步骤请查看: QUICKSTART.md${NC}
+
+${RED}========== 本脚本将自动完成 ==========${NC}
+  1. 在 mihomo VM 上安装 mihomo
+  2. 在 AdGuard Home VM 上安装 AdGuard Home
+  3. 生成 RouterOS 配置脚本（需要你手动应用）
   4. 验证部署结果
 
-请确保：
-  ✓ 已在 Proxmox 创建两个 Debian 12 VM
-  ✓ 已配置 VM 的静态 IP 地址
-  ✓ 可以通过 SSH 访问两个 VM
-  ✓ 拥有 root 密码
+${CYAN}注意：${NC}
+  - 本脚本不会创建 VM（需要你手动创建）
+  - 本脚本不会操作 RouterOS（只生成配置文件）
+  - RouterOS 配置需要你手动复制粘贴执行
 
 EOF
 
-    read -p "按 Enter 继续，Ctrl+C 退出..."
+    read -p "如果你已完成前置准备，按 Enter 继续，否则按 Ctrl+C 退出..."
     echo ""
 }
 
@@ -119,8 +137,11 @@ function collect_info() {
     echo ""
     echo ""
     
-    # RouterOS 信息
-    echo -e "${CYAN}=== RouterOS 信息 ===${NC}"
+    # RouterOS 信息（仅用于生成配置）
+    echo -e "${CYAN}=== RouterOS 信息（仅用于生成配置文件）===${NC}"
+    echo -e "${YELLOW}注意：本脚本不会连接或操作你的 RouterOS${NC}"
+    echo -e "${YELLOW}只是收集信息用于生成配置脚本，需要你手动执行${NC}"
+    echo ""
     read -p "RouterOS IP 地址 [${ROUTEROS_IP}]: " input
     ROUTEROS_IP=${input:-$ROUTEROS_IP}
     
@@ -145,6 +166,32 @@ function collect_info() {
     echo ""
 }
 
+function check_vm_reachable() {
+    local ip=$1
+    local name=$2
+    
+    msg_info "检查 ${name} 是否可达 (${ip})..."
+    
+    if ping -c 2 -W 2 $ip &>/dev/null; then
+        msg_success "${name} 网络可达"
+        return 0
+    else
+        msg_error "${name} 无法访问"
+        msg_warn "可能的原因："
+        echo "  1. VM 还没有创建"
+        echo "  2. VM 没有启动"
+        echo "  3. 静态 IP 配置错误"
+        echo "  4. 网络配置问题"
+        echo ""
+        msg_warn "解决方法："
+        echo "  1. 按照 QUICKSTART.md 创建 VM"
+        echo "  2. 配置静态 IP: /etc/network/interfaces"
+        echo "  3. 重启网络: systemctl restart networking"
+        echo "  4. 测试连接: ping ${ip}"
+        return 1
+    fi
+}
+
 function test_ssh_connection() {
     local ip=$1
     local password=$2
@@ -158,10 +205,12 @@ function test_ssh_connection() {
     else
         msg_error "${name} SSH 连接失败"
         msg_warn "请检查："
-        echo "  1. VM 是否已启动"
-        echo "  2. IP 地址是否正确"
-        echo "  3. root 密码是否正确"
-        echo "  4. SSH 服务是否运行"
+        echo "  1. root 密码是否正确"
+        echo "  2. SSH 服务是否运行: systemctl status ssh"
+        echo "  3. SSH 端口是否开放: netstat -tlnp | grep 22"
+        echo ""
+        msg_warn "提示："
+        echo "  手动测试: ssh root@${ip}"
         return 1
     fi
 }
@@ -170,7 +219,12 @@ function deploy_mihomo() {
     msg_step "部署 mihomo..."
     echo ""
     
-    # 测试连接
+    # 先检查 VM 是否可达
+    if ! check_vm_reachable "$MIHOMO_IP" "mihomo"; then
+        return 1
+    fi
+    
+    # 测试 SSH 连接
     if ! test_ssh_connection "$MIHOMO_IP" "$MIHOMO_PASSWORD" "mihomo"; then
         return 1
     fi
@@ -212,7 +266,12 @@ function deploy_adguard() {
     msg_step "部署 AdGuard Home..."
     echo ""
     
-    # 测试连接
+    # 先检查 VM 是否可达
+    if ! check_vm_reachable "$ADGUARD_IP" "AdGuard Home"; then
+        return 1
+    fi
+    
+    # 测试 SSH 连接
     if ! test_ssh_connection "$ADGUARD_IP" "$ADGUARD_PASSWORD" "AdGuard Home"; then
         return 1
     fi

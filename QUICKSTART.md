@@ -73,6 +73,8 @@ ping -c 3 8.8.8.8
 
 ## 一键部署（5 分钟）
 
+**⚠️ 重要：运行前必须完成上面的「准备工作」！**
+
 在**你的电脑**（Mac/Linux/Windows WSL）上运行：
 
 ```bash
@@ -82,6 +84,11 @@ curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/deploy.sh -o 
 # 运行部署
 bash deploy.sh
 ```
+
+**注意：**
+- deploy.sh 不会创建 VM（需要你先在 Proxmox 手动创建）
+- deploy.sh 不会操作 RouterOS（只生成配置文件）
+- 必须先完成 VM 创建和 IP 配置，否则会报错
 
 ### 脚本会询问：
 
