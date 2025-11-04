@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
-# sing-box + Clash转换服务 一体化安装脚本
-# 在 sing-box VM 上运行：bash install-singbox.sh
-# 或在线运行：curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox.sh | bash
-# 调试模式：DEBUG=1 bash install-singbox.sh
+# sing-box 自动安装脚本
+# 支持：内置转换器 / Sub-Store 管理
+# 调试：DEBUG=1 bash install-singbox.sh
 
-# 启用调试模式
 [ "$DEBUG" = "1" ] && set -x
 
 RED='\033[0;31m'
@@ -21,87 +19,80 @@ msg_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 header() {
     clear
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "  sing-box + Clash转换服务 安装程序"
+    echo "  sing-box 安装程序"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 }
 
 check_root() {
-    if [ "$EUID" -ne 0 ]; then
-        msg_error "需要 root 权限，请使用: sudo bash install-singbox.sh"
-    fi
+    [ "$EUID" -ne 0 ] && msg_error "需要 root 权限"
     msg_info "Root 权限检查通过"
 }
 
 check_system() {
     msg_info "检查系统..."
+    [ ! -f /etc/os-release ] && msg_error "无法检测系统"
     
-    if [ ! -f /etc/os-release ]; then
-        msg_error "无法检测系统类型，需要 /etc/os-release 文件"
-    fi
-    
-    # 读取系统信息
     . /etc/os-release
-    msg_info "检测到系统: $PRETTY_NAME"
+    msg_info "系统: $PRETTY_NAME"
     
-    # 检查是否是 Debian 系列
-    if [[ "$ID" != "debian" ]] && [[ "$ID_LIKE" != *"debian"* ]]; then
-        msg_error "仅支持 Debian/Ubuntu 系统，当前系统: $ID"
-    fi
-    
+    [[ "$ID" != "debian" ]] && [[ "$ID_LIKE" != *"debian"* ]] && msg_error "仅支持 Debian/Ubuntu"
     msg_ok "系统检查通过"
 }
 
 detect_arch() {
-    local machine_arch=$(uname -m)
-    msg_info "检测到架构: $machine_arch"
+    local arch=$(uname -m)
+    msg_info "架构: $arch"
     
-    case $machine_arch in
+    case $arch in
         x86_64) ARCH="amd64" ;;
         aarch64) ARCH="arm64" ;;
         armv7l) ARCH="armv7" ;;
-        *) msg_error "不支持的架构: $machine_arch" ;;
+        *) msg_error "不支持的架构: $arch" ;;
     esac
     
     msg_ok "架构: $ARCH"
 }
 
-install_deps() {
-    msg_info "安装依赖..."
-    export DEBIAN_FRONTEND=noninteractive
+choose_mode() {
+    echo ""
+    echo "请选择安装模式："
+    echo "  1) 快速模式 - 内置转换器（推荐单订阅）"
+    echo "  2) 完整模式 - Sub-Store 管理（推荐多订阅/高级功能）"
+    echo ""
     
-    msg_info "更新软件包列表..."
-    if ! apt-get update -qq; then
-        msg_error "apt-get update 失败，请检查网络连接和源配置"
+    if [ -n "$INSTALL_MODE" ]; then
+        MODE="$INSTALL_MODE"
+        msg_info "使用环境变量模式: $MODE"
+    else
+        if [ -t 0 ]; then
+            read -p "选择 [1]: " MODE
+        else
+            exec < /dev/tty
+            read -p "选择 [1]: " MODE
+        fi
     fi
     
-    msg_info "安装系统依赖包..."
-    if ! apt-get install -y -qq curl wget unzip gzip iptables jq python3 python3-pip 2>&1 | grep -v "^$"; then
-        msg_warn "部分依赖包安装可能有警告，但继续执行..."
-    fi
+    MODE=${MODE:-1}
     
-    msg_info "安装 Python 依赖..."
-    if ! pip3 install --quiet pyyaml 2>/dev/null; then
-        msg_warn "pip3 安装 pyyaml 失败，尝试备用方法..."
-        apt-get install -y -qq python3-yaml
+    if [ "$MODE" = "2" ]; then
+        USE_SUBSTORE=true
+        msg_ok "将安装 Sub-Store 完整版"
+    else
+        USE_SUBSTORE=false
+        msg_ok "将使用内置转换器"
     fi
-    
-    msg_ok "依赖安装完成"
 }
 
 get_subscription() {
     echo ""
     
-    # 如果环境变量已设置，直接使用
     if [ -n "$SUB_URL" ]; then
-        msg_info "使用环境变量订阅地址: $SUB_URL"
+        msg_info "订阅地址: $SUB_URL"
     else
-        # 从终端读取输入（支持管道运行）
         if [ -t 0 ]; then
-            # 标准输入是终端
             read -p "订阅地址: " SUB_URL
         else
-            # 标准输入被重定向，切换到 /dev/tty
             exec < /dev/tty
             read -p "订阅地址: " SUB_URL
         fi
@@ -109,96 +100,146 @@ get_subscription() {
     
     [ -z "$SUB_URL" ] && msg_error "订阅地址不能为空"
     [[ ! "$SUB_URL" =~ ^https?:// ]] && msg_error "订阅地址格式错误"
-    msg_ok "订阅地址: $SUB_URL"
     
-    echo ""
-    
-    # 订阅类型配置
-    if [ -n "$SUB_TYPE" ]; then
-        msg_info "使用环境变量订阅类型: $SUB_TYPE"
-    else
-        if [ -t 0 ]; then
-            read -p "订阅格式 (1=sing-box, 2=Clash需转换) [1]: " SUB_TYPE
+    if [ "$USE_SUBSTORE" = "false" ]; then
+        echo ""
+        echo "订阅格式："
+        echo "  1) sing-box 格式（直接使用）"
+        echo "  2) Clash 格式（自动转换）"
+        echo ""
+        
+        if [ -n "$SUB_TYPE" ]; then
+            msg_info "使用环境变量类型: $SUB_TYPE"
         else
-            exec < /dev/tty
-            read -p "订阅格式 (1=sing-box, 2=Clash需转换) [1]: " SUB_TYPE
+            if [ -t 0 ]; then
+                read -p "选择 [2]: " SUB_TYPE
+            else
+                exec < /dev/tty
+                read -p "选择 [2]: " SUB_TYPE
+            fi
+        fi
+        
+        SUB_TYPE=${SUB_TYPE:-2}
+        USE_CONVERTER=$( [ "$SUB_TYPE" = "2" ] && echo "true" || echo "false" )
+    fi
+    
+    msg_ok "配置完成"
+}
+
+install_deps() {
+    msg_info "安装依赖..."
+    export DEBIAN_FRONTEND=noninteractive
+    
+    apt-get update -qq || msg_error "apt-get update 失败"
+    
+    if [ "$USE_SUBSTORE" = "true" ]; then
+        apt-get install -y -qq curl wget unzip gzip iptables jq git ca-certificates gnupg
+    else
+        apt-get install -y -qq curl wget unzip gzip iptables jq python3 python3-yaml
+    fi
+    
+    msg_ok "依赖安装完成"
+}
+
+install_nodejs() {
+    msg_info "安装 Node.js..."
+    
+    if command -v node &>/dev/null; then
+        local ver=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+        if [ "$ver" -ge 18 ]; then
+            msg_ok "Node.js $(node --version) 已安装"
+            return
         fi
     fi
     
-    SUB_TYPE=${SUB_TYPE:-1}
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - || msg_error "NodeSource 失败"
+    apt-get install -y nodejs || msg_error "Node.js 安装失败"
+    npm install -g pnpm || msg_error "pnpm 安装失败"
     
-    if [ "$SUB_TYPE" = "2" ]; then
-        USE_CONVERTER=true
-        msg_ok "将启用Clash转换"
-    else
-        USE_CONVERTER=false
-        msg_ok "使用sing-box订阅"
-    fi
+    msg_ok "Node.js $(node --version) 安装完成"
 }
 
-install_singbox() {
-    msg_info "安装 sing-box..."
+install_substore() {
+    msg_info "安装 Sub-Store..."
     
-    VERSION=$(curl -s "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4 | sed 's/^v//')
-    [ -z "$VERSION" ] && msg_error "获取版本失败"
+    rm -rf /opt/sub-store
+    git clone --depth 1 https://github.com/sub-store-org/Sub-Store.git /opt/sub-store || msg_error "克隆失败"
     
-    URL="https://github.com/SagerNet/sing-box/releases/download/v${VERSION}/sing-box-${VERSION}-linux-${ARCH}.tar.gz"
-    wget -q --show-progress "$URL" -O /tmp/singbox.tar.gz || msg_error "下载失败"
+    cd /opt/sub-store/backend
+    msg_info "安装依赖（需要几分钟）..."
+    pnpm install || msg_warn "pnpm install 有警告"
     
-    tar -xzf /tmp/singbox.tar.gz -C /tmp/
-    install -m 755 /tmp/sing-box-${VERSION}-linux-${ARCH}/sing-box /usr/local/bin/sing-box
-    rm -rf /tmp/singbox* /tmp/sing-box-*
+    msg_info "构建..."
+    pnpm run build || msg_error "构建失败"
     
-    msg_ok "sing-box v${VERSION} 安装完成"
+    msg_ok "Sub-Store 安装完成"
 }
 
-download_geofiles() {
-    msg_info "下载 GEO 数据库..."
-    mkdir -p /etc/sing-box
-    curl -fsSL https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db -o /etc/sing-box/geoip.db
-    curl -fsSL https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db -o /etc/sing-box/geosite.db
-    msg_ok "GEO 数据库完成"
+setup_substore_service() {
+    msg_info "配置 Sub-Store 服务..."
+    
+    cat > /etc/systemd/system/sub-store.service <<'EOF'
+[Unit]
+Description=Sub-Store Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/sub-store/backend
+Environment="SUB_STORE_BACKEND_API_PORT=3001"
+Environment="SUB_STORE_BACKEND_API_HOST=0.0.0.0"
+Environment="NODE_ENV=production"
+ExecStart=/usr/bin/node /opt/sub-store/backend/dist/sub-store.bundle.js
+Restart=on-failure
+RestartSec=10s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    systemctl daemon-reload
+    systemctl enable sub-store
+    systemctl start sub-store
+    sleep 5
+    
+    systemctl is-active --quiet sub-store || msg_error "Sub-Store 启动失败: journalctl -u sub-store -f"
+    msg_ok "Sub-Store 已启动 (端口 3001)"
 }
 
 create_converter() {
-    if [ "$USE_CONVERTER" != "true" ]; then
-        return
-    fi
-    
-    msg_info "部署 Clash 转换服务..."
+    msg_info "创建转换工具..."
     
     mkdir -p /opt/converter
     cat > /opt/converter/convert.py <<'EOF'
 #!/usr/bin/env python3
 import json, yaml, sys, urllib.request, base64
 
-def convert(clash_yaml):
-    # 尝试 base64 解码
+def convert(data):
+    # Base64 解码
     try:
-        decoded = base64.b64decode(clash_yaml).decode('utf-8')
-        clash_yaml = decoded
+        data = base64.b64decode(data).decode('utf-8')
     except:
         pass
     
     # 解析 YAML
     try:
-        c = yaml.safe_load(clash_yaml)
+        c = yaml.safe_load(data)
     except Exception as e:
-        print(f"错误：YAML 解析失败 - {e}", file=sys.stderr)
+        print(f"错误: YAML解析失败 - {e}", file=sys.stderr)
         sys.exit(1)
     
-    # 检查是否是字典
     if not isinstance(c, dict):
-        print(f"错误：订阅格式不正确，期望 YAML 字典，得到 {type(c).__name__}", file=sys.stderr)
-        print(f"订阅内容前100字符: {str(c)[:100]}", file=sys.stderr)
+        print(f"错误: 订阅格式错误，得到 {type(c).__name__}", file=sys.stderr)
         sys.exit(1)
     
-    # 检查是否有 proxies 字段
     if 'proxies' not in c or not c['proxies']:
-        print("错误：订阅中没有找到节点（proxies字段为空或不存在）", file=sys.stderr)
-        print(f"可用字段: {list(c.keys())}", file=sys.stderr)
+        print(f"错误: 没有找到节点，可用字段: {list(c.keys())}", file=sys.stderr)
         sys.exit(1)
     
+    # 转换为 sing-box
     sb = {
         "log": {"level": "info"},
         "dns": {
@@ -222,8 +263,8 @@ def convert(clash_yaml):
         }
     }
     
-    outbounds, tags = [], []
-    for p in c.get('proxies', []):
+    nodes, tags = [], []
+    for p in c['proxies']:
         t = p.get('type', '').lower()
         o = {"tag": p['name'], "type": t, "server": p['server'], "server_port": p['port']}
         
@@ -236,18 +277,18 @@ def convert(clash_yaml):
             o['password'] = p['password']
             if p.get('sni'): o['tls'] = {"enabled": True, "server_name": p['sni']}
         
-        outbounds.append(o)
+        nodes.append(o)
         tags.append(p['name'])
     
-    outbounds = [
+    sb['outbounds'] = [
         {"type": "selector", "tag": "proxy", "outbounds": ["auto"] + tags + ["direct"], "default": "auto"},
-        {"type": "urltest", "tag": "auto", "outbounds": tags, "url": "https://www.gstatic.com/generate_204", "interval": "10m"},
+        {"type": "urltest", "tag": "auto", "outbounds": tags, "url": "https://www.gstatic.com/generate_204", "interval": "10m"}
+    ] + nodes + [
         {"type": "direct", "tag": "direct"},
         {"type": "block", "tag": "block"},
         {"type": "dns", "tag": "dns-out"}
-    ] + outbounds
+    ]
     
-    sb['outbounds'] = outbounds
     return json.dumps(sb, indent=2)
 
 if __name__ == '__main__':
@@ -257,15 +298,51 @@ if __name__ == '__main__':
 EOF
     
     chmod +x /opt/converter/convert.py
-    msg_ok "转换工具部署完成"
+    msg_ok "转换工具创建完成"
+}
+
+install_singbox() {
+    msg_info "安装 sing-box..."
+    
+    VERSION=$(curl -s "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4 | sed 's/^v//')
+    [ -z "$VERSION" ] && msg_error "无法获取版本"
+    
+    URL="https://github.com/SagerNet/sing-box/releases/download/v${VERSION}/sing-box-${VERSION}-linux-${ARCH}.tar.gz"
+    wget -q --show-progress "$URL" -O /tmp/singbox.tar.gz || msg_error "下载失败"
+    
+    tar -xzf /tmp/singbox.tar.gz -C /tmp/
+    mv /tmp/sing-box-*/sing-box /usr/local/bin/
+    chmod +x /usr/local/bin/sing-box
+    rm -rf /tmp/sing-box-* /tmp/singbox.tar.gz
+    
+    msg_ok "sing-box v${VERSION} 安装完成"
+}
+
+download_geofiles() {
+    msg_info "下载地理数据库..."
+    
+    mkdir -p /usr/local/share/sing-box
+    cd /usr/local/share/sing-box
+    wget -q https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db
+    wget -q https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db
+    
+    msg_ok "地理数据库完成"
 }
 
 setup_config() {
     msg_info "生成配置..."
     
     mkdir -p /etc/sing-box
+    echo "$SUB_URL" > /etc/sing-box/.subscription
     
-    if [ "$USE_CONVERTER" = "true" ]; then
+    if [ "$USE_SUBSTORE" = "true" ]; then
+        msg_info "下载配置（请稍后在 Sub-Store Web UI 中配置订阅）..."
+        # 临时配置，用户需要通过 Web UI 配置
+        curl -fsSL "$SUB_URL" -o /etc/sing-box/config.json || {
+            msg_warn "临时配置下载失败，将在 Sub-Store 配置后更新"
+            echo '{"log":{"level":"info"}}' > /etc/sing-box/config.json
+        }
+    elif [ "$USE_CONVERTER" = "true" ]; then
         msg_info "转换 Clash 订阅..."
         python3 /opt/converter/convert.py "$SUB_URL" > /etc/sing-box/config.json || msg_error "转换失败"
     else
@@ -273,7 +350,6 @@ setup_config() {
         curl -fsSL "$SUB_URL" -o /etc/sing-box/config.json || msg_error "下载失败"
     fi
     
-    echo "$SUB_URL" > /etc/sing-box/.subscription
     msg_ok "配置生成完成"
 }
 
@@ -288,22 +364,23 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/etc/sing-box
 ExecStart=/usr/local/bin/sing-box run -c /etc/sing-box/config.json
-Restart=always
-RestartSec=10
+Restart=on-failure
+RestartSec=10s
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
 EOF
-
+    
     systemctl daemon-reload
     systemctl enable sing-box
     systemctl start sing-box
     sleep 3
     
-    systemctl is-active --quiet sing-box || msg_error "服务启动失败，查看: journalctl -u sing-box"
-    msg_ok "服务启动成功"
+    systemctl is-active --quiet sing-box || msg_error "sing-box 启动失败: journalctl -u sing-box -f"
+    msg_ok "sing-box 服务启动成功"
 }
 
 show_summary() {
@@ -313,72 +390,75 @@ show_summary() {
     msg_ok "安装完成！"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "📍 服务信息"
-    echo "   IP: ${IP}"
-    echo "   代理: http://${IP}:7890 (HTTP+SOCKS5)"
+    echo "📍 服务地址"
+    echo "   sing-box 代理: http://${IP}:7890"
+    
+    if [ "$USE_SUBSTORE" = "true" ]; then
+        echo "   Sub-Store 管理: http://${IP}:3001"
+    fi
+    
     echo ""
     echo "🔧 管理命令"
-    echo "   systemctl status sing-box    # 状态"
-    echo "   systemctl restart sing-box   # 重启"
-    echo "   journalctl -u sing-box -f    # 日志"
+    echo "   systemctl status sing-box     # 状态"
+    echo "   systemctl restart sing-box    # 重启"
+    echo "   journalctl -u sing-box -f     # 日志"
+    
+    if [ "$USE_SUBSTORE" = "true" ]; then
+        echo ""
+        echo "🎛️  Sub-Store 管理"
+        echo "   访问: http://${IP}:3001"
+        echo "   systemctl status sub-store"
+        echo "   journalctl -u sub-store -f"
+    fi
+    
     echo ""
-    echo "🧪 测试"
+    echo "🧪 测试代理"
     echo "   curl -x http://${IP}:7890 https://www.google.com -I"
-    echo ""
-    echo "📝 配置"
-    echo "   /etc/sing-box/config.json"
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
 main() {
-    # 显示标题
     header
     
-    # 步骤 1: 检查权限
-    msg_info "步骤 1/9: 检查权限..."
+    msg_info "步骤 1/8: 检查权限..."
     check_root
     
-    # 步骤 2: 检查系统
-    msg_info "步骤 2/9: 检查系统..."
+    msg_info "步骤 2/8: 检查系统..."
     check_system
     
-    # 步骤 3: 检测架构
-    msg_info "步骤 3/9: 检测架构..."
+    msg_info "步骤 3/8: 检测架构..."
     detect_arch
     
-    # 步骤 4: 获取订阅
-    msg_info "步骤 4/9: 配置订阅..."
+    msg_info "步骤 4/8: 选择模式..."
+    choose_mode
+    
+    msg_info "步骤 5/8: 配置订阅..."
     get_subscription
     
-    # 步骤 5: 安装依赖
-    msg_info "步骤 5/9: 安装依赖..."
+    msg_info "步骤 6/8: 安装依赖..."
     install_deps
     
-    # 步骤 6: 安装 sing-box
-    msg_info "步骤 6/9: 安装 sing-box..."
+    if [ "$USE_SUBSTORE" = "true" ]; then
+        install_nodejs
+        install_substore
+        setup_substore_service
+    else
+        create_converter
+    fi
+    
+    msg_info "步骤 7/8: 安装 sing-box..."
     install_singbox
-    
-    # 步骤 7: 下载地理数据库
-    msg_info "步骤 7/9: 下载地理数据库..."
     download_geofiles
-    
-    # 步骤 8: 创建转换服务
-    msg_info "步骤 8/9: 创建转换服务..."
-    create_converter
-    
-    # 步骤 9: 配置服务
-    msg_info "步骤 9/9: 配置服务..."
     setup_config
+    
+    msg_info "步骤 8/8: 配置服务..."
     setup_service
     
-    # 完成
     show_summary
 }
 
-# 捕获错误
 set -E
-trap 'msg_error "安装过程中发生错误，请检查上述输出"' ERR
+trap 'msg_error "安装失败，请查看上述输出"' ERR
 
 main
-

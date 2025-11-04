@@ -33,43 +33,33 @@ bash create-vm.sh
 
 ### 2. 安装sing-box（10.0.0.3）
 
-#### 🎯 方案A：基础版本（快速）
-
-适合：sing-box 订阅或标准 Clash 订阅
-
 ```bash
 ssh root@10.0.0.3
-
-# 交互式安装
 curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox.sh | bash
+```
 
-# 或一键安装
-SUB_URL="你的订阅地址" SUB_TYPE="2" \
+**脚本会自动询问：**
+1. 安装模式：快速（内置转换） / 完整（Sub-Store 管理）
+2. 订阅地址
+3. 订阅格式（快速模式需要）
+
+**一键安装（跳过交互）：**
+
+```bash
+# 快速模式 - Clash 订阅自动转换
+SUB_URL="你的订阅地址" INSTALL_MODE="1" SUB_TYPE="2" \
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox.sh)"
 
-# SUB_TYPE=1: sing-box订阅
-# SUB_TYPE=2: Clash订阅（自动转换）
+# 完整模式 - Sub-Store 管理（多订阅/高级功能）
+SUB_URL="你的订阅地址" INSTALL_MODE="2" \
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox.sh)"
 ```
 
-#### 🚀 方案B：Sub-Store 版本（推荐）
-
-适合：复杂订阅、多订阅合并、高级规则
-
-特性：
-- ✅ Web UI 管理订阅
-- ✅ 支持更多订阅格式
-- ✅ 强大的过滤和规则
+**Sub-Store 完整模式特性：**
+- ✅ Web UI: `http://10.0.0.3:3001`
 - ✅ 多订阅合并
-
-```bash
-ssh root@10.0.0.3
-SUB_URL="你的订阅地址" \
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox-v2.sh)"
-```
-
-安装后访问：`http://10.0.0.3:3001` 进入 Sub-Store Web UI
-
-> 💡 **推荐使用方案B**，转换更可靠，管理更方便
+- ✅ 高级过滤规则
+- ✅ 所有格式支持
 
 ### 3. 安装AdGuard Home（10.0.0.4）
 
