@@ -109,7 +109,10 @@ deploy_substore() {
     msg_info "部署 Sub-Store..."
     
     # 创建数据目录
-    mkdir -p /opt/sub-store-data
+    mkdir -p /opt/sub-store
+    
+    # 生成随机 API 路径（安全性）
+    local BACKEND_PATH=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
     
     # 停止旧容器（如果存在）
     docker stop sub-store 2>/dev/null || true
@@ -118,12 +121,17 @@ deploy_substore() {
     # 运行 Sub-Store 容器
     docker run -d \
         --name sub-store \
-        --restart unless-stopped \
+        --restart always \
         -p 3001:3001 \
-        -v /opt/sub-store-data:/opt/app/data \
+        -v /opt/sub-store:/opt/app/data \
         -e "SUB_STORE_BACKEND_API_HOST=0.0.0.0" \
         -e "SUB_STORE_BACKEND_API_PORT=3001" \
+        -e "SUB_STORE_FRONTEND_BACKEND_PATH=/$BACKEND_PATH" \
         xream/sub-store || msg_error "容器启动失败"
+    
+    # 保存 BACKEND_PATH 到文件
+    echo "$BACKEND_PATH" > /opt/sub-store/.backend_path
+    chmod 600 /opt/sub-store/.backend_path
     
     msg_info "等待服务启动..."
     sleep 5
@@ -131,6 +139,22 @@ deploy_substore() {
     # 检查容器状态
     if docker ps | grep -q sub-store; then
         msg_ok "Sub-Store 容器运行中"
+        echo ""
+        msg_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        msg_info "📋 重要信息（请保存）"
+        msg_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "  🌐 访问地址: http://10.0.0.5:3001"
+        echo "  🔑 API 路径:  /$BACKEND_PATH"
+        echo "  📁 数据目录:  /opt/sub-store"
+        echo ""
+        msg_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        msg_info "💡 提示："
+        echo "  - API 路径已保存到: /opt/sub-store/.backend_path"
+        echo "  - 查看路径: cat /opt/sub-store/.backend_path"
+        echo "  - 查看日志: docker logs -f sub-store"
+        echo ""
     else
         msg_error "容器启动失败，查看日志: docker logs sub-store"
     fi
@@ -166,6 +190,11 @@ EOF
 
 show_summary() {
     local IP=$(hostname -I | awk '{print $1}')
+    local BACKEND_PATH=""
+    if [[ -f /opt/sub-store/.backend_path ]]; then
+        BACKEND_PATH=$(cat /opt/sub-store/.backend_path)
+    fi
+    
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     msg_ok "部署完成！"
@@ -173,6 +202,12 @@ show_summary() {
     echo ""
     echo "🌐 Web 管理界面"
     echo "   http://${IP}:3001"
+    if [[ -n "$BACKEND_PATH" ]]; then
+        echo ""
+        echo "🔑 API 路径（重要！请保存）"
+        echo "   /$BACKEND_PATH"
+        echo "   💾 已保存到: /opt/sub-store/.backend_path"
+    fi
     echo ""
     echo "📦 Docker 管理"
     echo "   docker ps                     # 查看容器"
@@ -187,7 +222,7 @@ show_summary() {
     echo "   systemctl restart sub-store-docker"
     echo ""
     echo "📂 数据目录"
-    echo "   /opt/sub-store-data"
+    echo "   /opt/sub-store"
     echo ""
     echo "💡 使用说明"
     echo "   1. 访问 Web UI: http://${IP}:3001"
@@ -197,11 +232,15 @@ show_summary() {
     echo "   5. 复制生成的订阅链接"
     echo "   6. 在 sing-box 中使用该链接"
     echo ""
+    if [[ -n "$BACKEND_PATH" ]]; then
+        echo "🔐 查看 API 路径"
+        echo "   cat /opt/sub-store/.backend_path"
+        echo ""
+    fi
     echo "🔄 更新 Sub-Store"
     echo "   docker pull xream/sub-store"
-    echo "   docker stop sub-store"
-    echo "   docker rm sub-store"
-    echo "   # 重新运行 install-substore-docker.sh"
+    echo "   docker stop sub-store && docker rm sub-store"
+    echo "   curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-substore-docker.sh | bash"
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
