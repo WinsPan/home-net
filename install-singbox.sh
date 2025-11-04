@@ -170,10 +170,35 @@ create_converter() {
     mkdir -p /opt/converter
     cat > /opt/converter/convert.py <<'EOF'
 #!/usr/bin/env python3
-import json, yaml, sys, urllib.request
+import json, yaml, sys, urllib.request, base64
 
 def convert(clash_yaml):
-    c = yaml.safe_load(clash_yaml)
+    # 尝试 base64 解码
+    try:
+        decoded = base64.b64decode(clash_yaml).decode('utf-8')
+        clash_yaml = decoded
+    except:
+        pass
+    
+    # 解析 YAML
+    try:
+        c = yaml.safe_load(clash_yaml)
+    except Exception as e:
+        print(f"错误：YAML 解析失败 - {e}", file=sys.stderr)
+        sys.exit(1)
+    
+    # 检查是否是字典
+    if not isinstance(c, dict):
+        print(f"错误：订阅格式不正确，期望 YAML 字典，得到 {type(c).__name__}", file=sys.stderr)
+        print(f"订阅内容前100字符: {str(c)[:100]}", file=sys.stderr)
+        sys.exit(1)
+    
+    # 检查是否有 proxies 字段
+    if 'proxies' not in c or not c['proxies']:
+        print("错误：订阅中没有找到节点（proxies字段为空或不存在）", file=sys.stderr)
+        print(f"可用字段: {list(c.keys())}", file=sys.stderr)
+        sys.exit(1)
+    
     sb = {
         "log": {"level": "info"},
         "dns": {
