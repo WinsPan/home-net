@@ -68,8 +68,11 @@ function interactive_config() {
     header_info
     
     # VM 名称
-    read -p "VM 名称 [mihomo]: " VM_NAME
-    VM_NAME=${VM_NAME:-mihomo}
+    read -p "VM 名称: " VM_NAME
+    while [ -z "$VM_NAME" ]; do
+        msg_error "VM 名称不能为空"
+        read -p "VM 名称: " VM_NAME
+    done
     
     # VMID
     DEFAULT_VMID=$(get_valid_vmid)
