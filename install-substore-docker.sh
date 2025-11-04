@@ -132,12 +132,12 @@ deploy_substore() {
     msg_info "等待端口释放..."
     sleep 3
     
-    # 运行 Sub-Store 容器
-    msg_info "启动新容器..."
+    # 运行 Sub-Store 容器（使用 host 网络模式避免端口冲突）
+    msg_info "启动新容器（host 网络模式）..."
     docker run -d \
         --name sub-store \
         --restart always \
-        -p 3001:3001 \
+        --network host \
         -v /opt/sub-store:/opt/app/data \
         -e "SUB_STORE_BACKEND_API_HOST=0.0.0.0" \
         -e "SUB_STORE_BACKEND_API_PORT=3001" \
