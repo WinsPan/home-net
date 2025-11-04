@@ -108,17 +108,32 @@ EOF
 deploy_substore() {
     msg_info "部署 Sub-Store..."
     
+    # 停止并禁用可能存在的 systemd 服务
+    if systemctl is-enabled sub-store-docker &>/dev/null; then
+        msg_info "停止旧的 systemd 服务..."
+        systemctl stop sub-store-docker
+        systemctl disable sub-store-docker
+        rm -f /etc/systemd/system/sub-store-docker.service
+        systemctl daemon-reload
+    fi
+    
     # 创建数据目录
     mkdir -p /opt/sub-store
     
     # 生成随机 API 路径（安全性）
     local BACKEND_PATH=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
     
-    # 停止旧容器（如果存在）
-    docker stop sub-store 2>/dev/null || true
-    docker rm sub-store 2>/dev/null || true
+    # 停止并删除所有 sub-store 容器
+    msg_info "清理旧容器..."
+    docker ps -aq --filter "name=sub-store" | xargs -r docker stop -t 2 2>/dev/null || true
+    docker ps -aq --filter "name=sub-store" | xargs -r docker rm -f 2>/dev/null || true
+    
+    # 等待端口完全释放
+    msg_info "等待端口释放..."
+    sleep 3
     
     # 运行 Sub-Store 容器
+    msg_info "启动新容器..."
     docker run -d \
         --name sub-store \
         --restart always \
@@ -163,29 +178,9 @@ deploy_substore() {
 setup_systemd() {
     msg_info "配置系统服务..."
     
-    # 创建 systemd 服务（可选，Docker 已经有 restart 策略）
-    cat > /etc/systemd/system/sub-store-docker.service <<'EOF'
-[Unit]
-Description=Sub-Store Docker Container
-After=docker.service
-Requires=docker.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/bin/docker start sub-store
-ExecStop=/usr/bin/docker stop sub-store
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    
-    systemctl daemon-reload
-    systemctl enable sub-store-docker
-    
-    msg_ok "系统服务配置完成"
+    # Docker 的 --restart always 已经足够
+    # 不需要额外的 systemd 服务，避免冲突
+    msg_ok "使用 Docker 自动重启策略（--restart always）"
 }
 
 show_summary() {
@@ -217,9 +212,9 @@ show_summary() {
     echo "   docker stop sub-store         # 停止容器"
     echo "   docker start sub-store        # 启动容器"
     echo ""
-    echo "🔧 系统服务"
-    echo "   systemctl status sub-store-docker"
-    echo "   systemctl restart sub-store-docker"
+    echo "🔄 自动重启"
+    echo "   容器使用 --restart always 策略"
+    echo "   系统重启后会自动启动"
     echo ""
     echo "📂 数据目录"
     echo "   /opt/sub-store"
