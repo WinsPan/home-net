@@ -56,9 +56,19 @@ detect_arch() {
 
 choose_mode() {
     echo ""
+    
+    # 检查系统内存
+    local total_mem=$(free -m | awk '/^Mem:/{print $2}')
+    msg_info "系统内存: ${total_mem}MB"
+    
+    if [ "$total_mem" -lt 1500 ]; then
+        msg_warn "⚠️  内存不足 2GB，建议使用快速模式"
+    fi
+    
+    echo ""
     echo "请选择安装模式："
-    echo "  1) 快速模式 - 内置转换器（推荐单订阅）"
-    echo "  2) 完整模式 - Sub-Store 管理（推荐多订阅/高级功能）"
+    echo "  1) 快速模式 - 内置转换器（推荐单订阅，内存要求低）"
+    echo "  2) 完整模式 - Sub-Store 管理（推荐多订阅，需要 ≥2GB 内存）"
     echo ""
     
     if [ -n "$INSTALL_MODE" ]; then
@@ -76,8 +86,27 @@ choose_mode() {
     MODE=${MODE:-1}
     
     if [ "$MODE" = "2" ]; then
-        USE_SUBSTORE=true
-        msg_ok "将安装 Sub-Store 完整版"
+        if [ "$total_mem" -lt 1500 ]; then
+            msg_warn "警告：内存可能不足，Sub-Store 构建可能失败"
+            echo ""
+            read -p "是否继续？(y/N): " confirm
+            confirm=${confirm:-N}
+            if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+                msg_info "已取消，将使用快速模式"
+                MODE=1
+                USE_SUBSTORE=false
+            else
+                USE_SUBSTORE=true
+            fi
+        else
+            USE_SUBSTORE=true
+        fi
+        
+        if [ "$USE_SUBSTORE" = "true" ]; then
+            msg_ok "将安装 Sub-Store 完整版"
+        else
+            msg_ok "将使用内置转换器"
+        fi
     else
         USE_SUBSTORE=false
         msg_ok "将使用内置转换器"
@@ -169,7 +198,7 @@ install_substore() {
     msg_info "安装依赖（需要几分钟）..."
     pnpm install || msg_warn "pnpm install 有警告"
     
-    msg_info "构建（禁用 ESLint）..."
+    msg_info "构建（增加内存限制）..."
     
     # 创建 .eslintignore 忽略所有文件
     cat > /opt/sub-store/backend/.eslintignore <<'EOF'
@@ -180,15 +209,25 @@ EOF
     
     msg_info "已禁用 ESLint 检查"
     
+    # 增加 Node.js 内存限制到 4GB
+    export NODE_OPTIONS="--max-old-space-size=4096"
+    msg_info "已设置 Node.js 内存限制: 4GB"
+    
     # 尝试构建
     if pnpm run build 2>&1 | tee /tmp/substore-build.log; then
         msg_ok "构建成功"
     else
+        msg_warn "构建出现错误，检查产物..."
         # 检查是否有构建产物
-        if [ -f "dist/sub-store.bundle.js" ]; then
-            msg_warn "构建有警告但产物存在，继续..."
+        if [ -f "dist/sub-store.bundle.js" ] && [ -s "dist/sub-store.bundle.js" ]; then
+            local size=$(stat -c%s "dist/sub-store.bundle.js" 2>/dev/null || stat -f%z "dist/sub-store.bundle.js" 2>/dev/null || echo 0)
+            if [ "$size" -gt 100000 ]; then
+                msg_ok "构建产物存在且大小正常 (${size} bytes)，继续..."
+            else
+                msg_error "构建产物太小，构建失败"
+            fi
         else
-            msg_error "构建失败，查看日志: /tmp/substore-build.log"
+            msg_error "构建失败，未找到有效产物。查看日志: /tmp/substore-build.log"
         fi
     fi
     
