@@ -107,9 +107,10 @@ curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-adgua
 ## 📊 IP规划
 
 ```
-RouterOS:  10.0.0.2  (主路由)
-sing-box:  10.0.0.3  (代理)
-AdGuard:   10.0.0.4  (DNS)
+RouterOS:   10.0.0.2  (主路由)
+sing-box:   10.0.0.3  (代理)
+AdGuard:    10.0.0.4  (DNS)
+Sub-Store:  10.0.0.5  (订阅转换，可选)
 ```
 
 ---
@@ -120,12 +121,20 @@ AdGuard:   10.0.0.4  (DNS)
 # sing-box
 ssh root@10.0.0.3
 systemctl status sing-box
+systemctl restart sing-box
 journalctl -u sing-box -f
 
 # AdGuard Home
 ssh root@10.0.0.4
 systemctl status AdGuardHome
+systemctl restart AdGuardHome
 journalctl -u AdGuardHome -f
+
+# Sub-Store (Docker)
+ssh root@10.0.0.5
+docker ps | grep sub-store
+docker restart sub-store
+docker logs -f sub-store
 ```
 
 ---
@@ -133,11 +142,15 @@ journalctl -u AdGuardHome -f
 ## 🧪 测试
 
 ```bash
-# 测试代理
+# 测试 sing-box 代理
 curl -x http://10.0.0.3:7890 https://www.google.com -I
 
-# 测试DNS
+# 测试 AdGuard Home DNS
 nslookup google.com 10.0.0.4
+
+# 测试 Sub-Store Web UI
+curl http://10.0.0.5:3001
+# 或浏览器访问: http://10.0.0.5:3001
 ```
 
 ---
