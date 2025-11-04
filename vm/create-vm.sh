@@ -240,20 +240,24 @@ function setup_cloudinit() {
     
     mkdir -p "$snippets_dir"
     
-    cat > "$userdata_file" << 'USERDATA'
+    # 使用变量替换创建配置（不能用单引号）
+    cat > "$userdata_file" <<USERDATA
 #cloud-config
+# 设置 root 用户
+users:
+  - name: root
+    lock_passwd: false
+    plain_text_passwd: '${ROOT_PASSWORD}'
+
 # 启用 SSH 密码认证
 ssh_pwauth: true
 disable_root: false
+
+# 密码不过期
 chpasswd:
   expire: false
 
-# SSH 配置
-ssh:
-  allow_users:
-    - root
-
-# 启用 SSH 服务
+# 确保 SSH 配置正确
 runcmd:
   - sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
   - sed -i 's/PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
@@ -269,14 +273,10 @@ USERDATA
     # 配置 DNS
     qm set $VMID -nameserver "$DNS" &>/dev/null
     
-    # 配置用户
-    qm set $VMID -ciuser root &>/dev/null
-    qm set $VMID -cipassword "$ROOT_PASSWORD" &>/dev/null
-    
-    # 应用自定义 cloud-init 配置
+    # 应用自定义 cloud-init 配置（包含用户和密码）
     qm set $VMID -cicustom "user=local:snippets/vm-${VMID}-userdata.yml" &>/dev/null
     
-    msg_ok "Cloud-init 配置完成（已启用 SSH 密码认证）"
+    msg_ok "Cloud-init 配置完成（root 密码已设置，SSH 密码认证已启用）"
 }
 
 # 启动 VM
