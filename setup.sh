@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# BoomDNS 主部署脚本
+# BoomDNS 部署引导脚本
+# 在 Proxmox 节点运行
 
 set -e
 
@@ -16,28 +17,16 @@ function msg_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 function msg_ok() { echo -e "${GREEN}[OK]${NC} $1"; }
 function msg_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 function msg_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
-function msg_step() { echo -e "${CYAN}[STEP]${NC} $1"; }
-
-# 清除SSH known_hosts，避免host key验证失败
-function clear_ssh_host_key() {
-    local ip=$1
-    if [ -f ~/.ssh/known_hosts ]; then
-        ssh-keygen -f ~/.ssh/known_hosts -R "$ip" &>/dev/null || true
-    fi
-}
-
-# SSH连接选项（跳过严格host key检查，使用密码认证）
-SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PasswordAuthentication=yes"
+function msg_step() { echo -e "${CYAN}[步骤]${NC} $1"; }
 
 function header() {
     clear
     cat <<"EOF"
 ╔══════════════════════════════════════════════════════════╗
 ║                                                          ║
-║           BoomDNS 智能部署系统                           ║
+║           BoomDNS 家庭网络解决方案                        ║
 ║                                                          ║
-║   mihomo + AdGuard Home + RouterOS                      ║
-║   智能分流 + 广告过滤 + 完整管理                          ║
+║   mihomo (代理分流) + AdGuard Home (广告过滤)             ║
 ║                                                          ║
 ╚══════════════════════════════════════════════════════════╝
 EOF
@@ -46,7 +35,7 @@ EOF
 
 function check_root() {
     if [[ "$(id -u)" -ne 0 ]]; then
-        msg_error "需要 root 权限运行此脚本"
+        msg_error "需要 root 权限运行"
         exit 1
     fi
 }
@@ -60,315 +49,215 @@ function check_proxmox() {
     msg_ok "Proxmox 环境检测通过"
 }
 
-function show_main_menu() {
+function show_guide() {
     header
     
-    echo "【主菜单】"
-    echo ""
-    echo "  VM 管理:"
-    echo "    1) 创建 mihomo VM"
-    echo "    2) 创建 AdGuard Home VM"
-    echo ""
-    echo "  服务管理:"
-    echo "    3) 安装 mihomo"
-    echo "    4) 管理 mihomo (订阅/配置/透明代理)"
-    echo "    5) 安装 AdGuard Home"
-    echo ""
-    echo "  RouterOS:"
-    echo "    6) 生成 RouterOS 配置"
-    echo ""
-    echo "  快速部署:"
-    echo "    7) 一键完整部署（推荐）"
-    echo ""
-    echo "  其他:"
-    echo "    8) 查看文档"
-    echo "    0) 退出"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  📚 部署指南"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
     
-    read -p "请选择: " choice
+    echo "🎯 部署流程（3步）："
+    echo ""
+    echo "  第一步：在 PVE 节点创建 VM"
+    echo "  第二步：在 mihomo VM 安装服务"
+    echo "  第三步：在 AdGuard Home VM 安装服务"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
     
-    case $choice in
-        1) create_mihomo_vm ;;
-        2) create_adguard_vm ;;
-        3) install_mihomo ;;
-        4) manage_mihomo ;;
-        5) install_adguard ;;
-        6) generate_routeros ;;
-        7) full_deployment ;;
-        8) show_docs ;;
-        0) 
-            msg_ok "退出"
-            exit 0
-            ;;
-        *)
-            msg_error "无效选项"
-            sleep 1
-            show_main_menu
-            ;;
-    esac
+    msg_step "第一步：创建 VM（在当前 PVE 节点执行）"
+    echo ""
+    echo "  1️⃣  创建 mihomo VM："
+    echo "      bash vm/create-vm.sh"
+    echo ""
+    echo "      配置建议："
+    echo "        VM 名称: mihomo"
+    echo "        VMID: 101"
+    echo "        CPU: 2 核"
+    echo "        内存: 2048 MB"
+    echo "        磁盘: 10 GB"
+    echo "        IP: 10.0.0.3/24"
+    echo "        网关: 10.0.0.2"
+    echo ""
+    echo "  2️⃣  创建 AdGuard Home VM："
+    echo "      bash vm/create-vm.sh"
+    echo ""
+    echo "      配置建议："
+    echo "        VM 名称: adguardhome"
+    echo "        VMID: 102"
+    echo "        CPU: 2 核"
+    echo "        内存: 2048 MB"
+    echo "        磁盘: 10 GB"
+    echo "        IP: 10.0.0.4/24"
+    echo "        网关: 10.0.0.2"
+    echo ""
+    
+    msg_step "第二步：安装 mihomo（SSH 登录 mihomo VM 执行）"
+    echo ""
+    echo "  SSH 登录 mihomo VM："
+    echo "      ssh root@10.0.0.3"
+    echo ""
+    echo "  在 mihomo VM 上运行安装脚本："
+    echo "      curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/services/mihomo/install.sh | bash"
+    echo ""
+    echo "  或者使用本地脚本："
+    echo "      scp services/mihomo/install.sh root@10.0.0.3:/tmp/"
+    echo "      ssh root@10.0.0.3 'bash /tmp/install.sh'"
+    echo ""
+    echo "  根据提示输入机场订阅地址"
+    echo ""
+    
+    msg_step "第三步：安装 AdGuard Home（SSH 登录 AdGuard Home VM 执行）"
+    echo ""
+    echo "  SSH 登录 AdGuard Home VM："
+    echo "      ssh root@10.0.0.4"
+    echo ""
+    echo "  在 AdGuard Home VM 上运行安装脚本："
+    echo "      curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/services/adguardhome/install.sh | bash"
+    echo ""
+    echo "  或者使用本地脚本："
+    echo "      scp services/adguardhome/install.sh root@10.0.0.4:/tmp/"
+    echo "      ssh root@10.0.0.4 'bash /tmp/install.sh'"
+    echo ""
+    echo "  安装完成后访问: http://10.0.0.4:3000 初始化"
+    echo ""
+    
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    msg_info "💡 提示："
+    echo "   • VM 创建后会自动启动并配置好网络"
+    echo "   • 密码登录无需配置 SSH 密钥"
+    echo "   • 每个服务独立安装互不影响"
+    echo ""
+    
+    read -p "按回车键继续查看快速命令..."
+    show_quick_commands
 }
 
-function create_mihomo_vm() {
-    msg_step "创建 mihomo VM"
-    echo ""
-    
-    if [ -f "$SCRIPT_DIR/vm/create-vm.sh" ]; then
-        bash "$SCRIPT_DIR/vm/create-vm.sh"
-    else
-        msg_error "找不到 VM 创建脚本"
-    fi
-    
-    echo ""
-    read -p "按回车返回主菜单..."
-    show_main_menu
-}
-
-function create_adguard_vm() {
-    msg_step "创建 AdGuard Home VM"
-    echo ""
-    
-    if [ -f "$SCRIPT_DIR/vm/create-vm.sh" ]; then
-        bash "$SCRIPT_DIR/vm/create-vm.sh"
-    else
-        msg_error "找不到 VM 创建脚本"
-    fi
-    
-    echo ""
-    read -p "按回车返回主菜单..."
-    show_main_menu
-}
-
-function install_mihomo() {
-    msg_step "安装 mihomo"
-    echo ""
-    
-    read -p "mihomo VM IP 地址: " MIHOMO_IP
-    
-    if [ -z "$MIHOMO_IP" ]; then
-        msg_error "IP 地址不能为空"
-        sleep 1
-        show_main_menu
-        return
-    fi
-    
-    # 收集机场订阅地址
-    echo ""
-    read -p "机场订阅地址: " SUBSCRIPTION_URL
-    
-    if [ -z "$SUBSCRIPTION_URL" ]; then
-        msg_error "订阅地址不能为空"
-        sleep 1
-        show_main_menu
-        return
-    fi
-    
-    if [[ ! "$SUBSCRIPTION_URL" =~ ^https?:// ]]; then
-        msg_error "订阅地址格式错误（需要 http:// 或 https://）"
-        sleep 1
-        show_main_menu
-        return
-    fi
-    
-    msg_info "连接到 $MIHOMO_IP..."
-    
-    # 清除旧的SSH host key
-    clear_ssh_host_key "$MIHOMO_IP"
-    
-    if [ -f "$SCRIPT_DIR/services/mihomo/install.sh" ]; then
-        scp $SSH_OPTS "$SCRIPT_DIR/services/mihomo/install.sh" root@${MIHOMO_IP}:/tmp/ || {
-            msg_error "无法连接到 VM，请检查 IP 和网络"
-            sleep 2
-            show_main_menu
-            return
-        }
-        # 通过环境变量传递订阅地址，设置locale和TERM避免警告
-        ssh $SSH_OPTS root@${MIHOMO_IP} "export TERM=xterm LC_ALL=C SUBSCRIPTION_URL='${SUBSCRIPTION_URL}' && bash /tmp/install.sh" || {
-            msg_error "安装失败"
-            sleep 2
-        }
-    else
-        msg_error "找不到 mihomo 安装脚本"
-    fi
-    
-    echo ""
-    read -p "按回车返回主菜单..."
-    show_main_menu
-}
-
-function manage_mihomo() {
-    msg_step "管理 mihomo"
-    echo ""
-    
-    read -p "mihomo VM IP 地址: " MIHOMO_IP
-    
-    if [ -z "$MIHOMO_IP" ]; then
-        msg_error "IP 地址不能为空"
-        sleep 1
-        show_main_menu
-        return
-    fi
-    
-    # 清除旧的SSH host key
-    clear_ssh_host_key "$MIHOMO_IP"
-    
-    if [ -f "$SCRIPT_DIR/services/mihomo/manage.sh" ]; then
-        ssh $SSH_OPTS -t root@${MIHOMO_IP} "bash -c \"\$(cat)\"" < "$SCRIPT_DIR/services/mihomo/manage.sh" || {
-            msg_error "无法连接到 VM"
-            sleep 2
-        }
-    else
-        msg_error "找不到 mihomo 管理脚本"
-    fi
-    
-    show_main_menu
-}
-
-function install_adguard() {
-    msg_step "安装 AdGuard Home"
-    echo ""
-    
-    read -p "AdGuard Home VM IP 地址: " ADGUARD_IP
-    
-    if [ -z "$ADGUARD_IP" ]; then
-        msg_error "IP 地址不能为空"
-        sleep 1
-        show_main_menu
-        return
-    fi
-    
-    msg_info "连接到 $ADGUARD_IP..."
-    
-    # 清除旧的SSH host key
-    clear_ssh_host_key "$ADGUARD_IP"
-    
-    if [ -f "$SCRIPT_DIR/services/adguardhome/install.sh" ]; then
-        scp $SSH_OPTS "$SCRIPT_DIR/services/adguardhome/install.sh" root@${ADGUARD_IP}:/tmp/ || {
-            msg_error "无法连接到 VM"
-            sleep 2
-            show_main_menu
-            return
-        }
-        # 设置locale和TERM避免警告
-        ssh $SSH_OPTS root@${ADGUARD_IP} "export TERM=xterm LC_ALL=C && bash /tmp/install.sh" || {
-            msg_error "安装失败"
-            sleep 2
-        }
-    else
-        msg_error "找不到 AdGuard Home 安装脚本"
-    fi
-    
-    echo ""
-    read -p "按回车返回主菜单..."
-    show_main_menu
-}
-
-function generate_routeros() {
-    msg_step "生成 RouterOS 配置"
-    echo ""
-    
-    if [ -f "$SCRIPT_DIR/routeros/generate-config.sh" ]; then
-        bash "$SCRIPT_DIR/routeros/generate-config.sh"
-    else
-        msg_error "找不到 RouterOS 配置生成脚本"
-    fi
-    
-    echo ""
-    read -p "按回车返回主菜单..."
-    show_main_menu
-}
-
-function full_deployment() {
+function show_quick_commands() {
+    clear
     header
     
-    msg_warn "一键完整部署将执行以下操作："
-    echo ""
-    echo "  1. 创建 mihomo VM"
-    echo "  2. 创建 AdGuard Home VM"
-    echo "  3. 安装 mihomo 服务"
-    echo "  4. 安装 AdGuard Home 服务"
-    echo "  5. 生成 RouterOS 配置"
-    echo ""
-    echo "预计时间: 15-20 分钟"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  ⚡ 快速部署命令"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
     
-    read -p "确认开始？(y/n): " confirm
-    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-        show_main_menu
-        return
-    fi
-    
-    # 保存配置信息
+    echo "📦 第一步：创建 VM"
     echo ""
-    msg_info "收集配置信息..."
+    echo "# 创建 mihomo VM"
+    echo "bash vm/create-vm.sh"
+    echo ""
+    echo "# 创建 AdGuard Home VM"
+    echo "bash vm/create-vm.sh"
     echo ""
     
-    read -p "mihomo IP [10.0.0.3]: " MIHOMO_IP
-    MIHOMO_IP=${MIHOMO_IP:-10.0.0.3}
-    
-    read -p "AdGuard IP [10.0.0.4]: " ADGUARD_IP
-    ADGUARD_IP=${ADGUARD_IP:-10.0.0.4}
-    
-    read -p "网关 [10.0.0.2]: " GATEWAY
-    GATEWAY=${GATEWAY:-10.0.0.2}
-    
-    msg_ok "配置信息已收集"
-    
-    # 执行部署...
-    msg_warn "请按照提示完成各步骤的配置"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
     
-    read -p "按回车开始部署..."
-    
-    msg_step "步骤 1/5: 创建 mihomo VM"
-    create_mihomo_vm
-    
-    msg_step "步骤 2/5: 创建 AdGuard Home VM"
-    create_adguard_vm
-    
-    msg_step "步骤 3/5: 安装 mihomo"
-    install_mihomo
-    
-    msg_step "步骤 4/5: 安装 AdGuard Home"
-    install_adguard
-    
-    msg_step "步骤 5/5: 生成 RouterOS 配置"
-    generate_routeros
-    
+    echo "🚀 第二步：安装 mihomo"
     echo ""
-    echo "════════════════════════════════════════"
-    msg_ok "完整部署完成！"
-    echo "════════════════════════════════════════"
+    echo "# 方式 1：在线安装（推荐）"
+    echo "ssh root@10.0.0.3 'curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/services/mihomo/install.sh | bash'"
     echo ""
-    echo "下一步："
-    echo "  1. 在 AdGuard Home Web 界面完成初始化"
-    echo "  2. 在 RouterOS 中应用生成的配置"
-    echo "  3. 测试网络连接和广告过滤"
+    echo "# 方式 2：本地脚本"
+    echo "scp services/mihomo/install.sh root@10.0.0.3:/tmp/ && ssh root@10.0.0.3 'bash /tmp/install.sh'"
     echo ""
     
-    read -p "按回车返回主菜单..."
-    show_main_menu
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    
+    echo "🛡️  第三步：安装 AdGuard Home"
+    echo ""
+    echo "# 方式 1：在线安装（推荐）"
+    echo "ssh root@10.0.0.4 'curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/services/adguardhome/install.sh | bash'"
+    echo ""
+    echo "# 方式 2：本地脚本"
+    echo "scp services/adguardhome/install.sh root@10.0.0.4:/tmp/ && ssh root@10.0.0.4 'bash /tmp/install.sh'"
+    echo ""
+    
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    
+    echo "🌐 第四步：配置 RouterOS（可选）"
+    echo ""
+    echo "bash routeros/generate-config.sh"
+    echo ""
+    
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    
+    echo "📋 服务访问地址："
+    echo ""
+    echo "  mihomo 管理面板: http://10.0.0.3:9090"
+    echo "  AdGuard Home:    http://10.0.0.4:3000"
+    echo ""
+    
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
 }
 
-function show_docs() {
-    header
-    
-    echo "【文档】"
-    echo ""
-    
-    if [ -f "$SCRIPT_DIR/docs/CONFIG.md" ]; then
-        less "$SCRIPT_DIR/docs/CONFIG.md"
-    else
-        msg_warn "文档文件不存在"
-    fi
-    
-    show_main_menu
+function show_menu() {
+    while true; do
+        clear
+        header
+        
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  🎯 选择操作"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "  1) 📚 查看部署指南（推荐）"
+        echo "  2) 📦 创建 VM"
+        echo "  3) ⚡ 查看快速命令"
+        echo "  4) 🌐 生成 RouterOS 配置"
+        echo "  0) 🚪 退出"
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        
+        read -p "请选择 [0-4]: " choice
+        
+        case $choice in
+            1)
+                show_guide
+                ;;
+            2)
+                if [ -f "$SCRIPT_DIR/vm/create-vm.sh" ]; then
+                    bash "$SCRIPT_DIR/vm/create-vm.sh"
+                else
+                    msg_error "找不到 VM 创建脚本"
+                fi
+                read -p "按回车返回主菜单..."
+                ;;
+            3)
+                show_quick_commands
+                read -p "按回车返回主菜单..."
+                ;;
+            4)
+                if [ -f "$SCRIPT_DIR/routeros/generate-config.sh" ]; then
+                    bash "$SCRIPT_DIR/routeros/generate-config.sh"
+                else
+                    msg_error "找不到 RouterOS 配置生成脚本"
+                fi
+                read -p "按回车返回主菜单..."
+                ;;
+            0)
+                msg_ok "再见！"
+                exit 0
+                ;;
+            *)
+                msg_error "无效选择"
+                sleep 1
+                ;;
+        esac
+    done
 }
 
 function main() {
     check_root
     check_proxmox
-    show_main_menu
+    show_menu
 }
 
 main
-

@@ -63,7 +63,6 @@ function download_scripts() {
     
     # 下载 mihomo 脚本
     curl -fsSL ${REPO}/services/mihomo/install.sh -o ${INSTALL_DIR}/services/mihomo/install.sh
-    curl -fsSL ${REPO}/services/mihomo/manage.sh -o ${INSTALL_DIR}/services/mihomo/manage.sh
     
     # 下载 AdGuard 脚本
     curl -fsSL ${REPO}/services/adguardhome/install.sh -o ${INSTALL_DIR}/services/adguardhome/install.sh
@@ -73,7 +72,7 @@ function download_scripts() {
     
     # 下载文档
     curl -fsSL ${REPO}/README.md -o ${INSTALL_DIR}/README.md 2>/dev/null || true
-    curl -fsSL ${REPO}/QUICKSTART.md -o ${INSTALL_DIR}/QUICKSTART.md 2>/dev/null || true
+    curl -fsSL ${REPO}/docs/CONFIG.md -o ${INSTALL_DIR}/docs/CONFIG.md 2>/dev/null || true
     
     # 设置执行权限
     chmod +x ${INSTALL_DIR}/setup.sh
@@ -98,15 +97,6 @@ case "$1" in
     create-vm)
         bash /opt/boomdns/vm/create-vm.sh
         ;;
-    mihomo)
-        bash /opt/boomdns/services/mihomo/manage.sh
-        ;;
-    mihomo-install)
-        bash /opt/boomdns/services/mihomo/install.sh
-        ;;
-    adguard)
-        bash /opt/boomdns/services/adguardhome/install.sh
-        ;;
     routeros)
         bash /opt/boomdns/routeros/generate-config.sh
         ;;
@@ -115,23 +105,28 @@ case "$1" in
         ;;
     *)
         cat << EOF
-BoomDNS 命令帮助
+╔══════════════════════════════════════════════════════════╗
+║           BoomDNS 家庭网络解决方案                        ║
+╚══════════════════════════════════════════════════════════╝
 
 使用方式:
   boomdns <command>
 
 命令列表:
-  setup              一键部署（推荐）
-  create-vm          创建 VM
-  mihomo-install     安装 mihomo
-  mihomo             管理 mihomo（订阅/配置/透明代理）
-  adguard            安装 AdGuard Home
-  routeros           生成 RouterOS 配置
-  update             更新脚本到最新版本
+  setup        查看部署指南（推荐）
+  create-vm    创建 VM
+  routeros     生成 RouterOS 配置
+  update       更新脚本到最新版本
 
-示例:
-  boomdns setup      # 一键部署
-  boomdns mihomo     # 管理 mihomo
+快速开始:
+  boomdns setup
+
+服务安装（在对应 VM 上运行）:
+  # mihomo (在 10.0.0.3)
+  curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/services/mihomo/install.sh | bash
+  
+  # AdGuard Home (在 10.0.0.4)
+  curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/services/adguardhome/install.sh | bash
 
 更多帮助: cat /opt/boomdns/README.md
 EOF
