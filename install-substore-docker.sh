@@ -132,15 +132,13 @@ deploy_substore() {
     msg_info "等待端口释放..."
     sleep 3
     
-    # 运行 Sub-Store 容器（使用 host 网络模式避免端口冲突）
-    msg_info "启动新容器（host 网络模式）..."
-    docker run -d \
+    # 运行 Sub-Store 容器
+    msg_info "启动新容器..."
+    docker run -it -d \
         --name sub-store \
         --restart always \
-        --network host \
+        -p 3001:3001 \
         -v /opt/sub-store:/opt/app/data \
-        -e "SUB_STORE_BACKEND_API_HOST=0.0.0.0" \
-        -e "SUB_STORE_BACKEND_API_PORT=3001" \
         -e "SUB_STORE_FRONTEND_BACKEND_PATH=/$BACKEND_PATH" \
         xream/sub-store || msg_error "容器启动失败"
     
@@ -153,19 +151,23 @@ deploy_substore() {
     
     # 检查容器状态
     if docker ps | grep -q sub-store; then
+        local IP=$(hostname -I | awk '{print $1}')
         msg_ok "Sub-Store 容器运行中"
         echo ""
         msg_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         msg_info "📋 重要信息（请保存）"
         msg_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
-        echo "  🌐 访问地址: http://10.0.0.5:3001"
         echo "  🔑 API 路径:  /$BACKEND_PATH"
         echo "  📁 数据目录:  /opt/sub-store"
+        echo ""
+        echo "  🌐 正确的访问地址（重要！）："
+        echo "     http://${IP}:3001?api=http://${IP}:3001/$BACKEND_PATH"
         echo ""
         msg_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
         msg_info "💡 提示："
+        echo "  - 必须使用完整 URL（包含 ?api= 参数）访问"
         echo "  - API 路径已保存到: /opt/sub-store/.backend_path"
         echo "  - 查看路径: cat /opt/sub-store/.backend_path"
         echo "  - 查看日志: docker logs -f sub-store"
@@ -195,13 +197,17 @@ show_summary() {
     msg_ok "部署完成！"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "🌐 Web 管理界面"
-    echo "   http://${IP}:3001"
+    echo "🌐 Web 管理界面（完整访问地址）"
     if [[ -n "$BACKEND_PATH" ]]; then
+        echo "   http://${IP}:3001?api=http://${IP}:3001/$BACKEND_PATH"
         echo ""
         echo "🔑 API 路径（重要！请保存）"
         echo "   /$BACKEND_PATH"
         echo "   💾 已保存到: /opt/sub-store/.backend_path"
+        echo ""
+        echo "⚠️  注意：必须使用完整 URL（包含 ?api= 参数）访问"
+    else
+        echo "   http://${IP}:3001"
     fi
     echo ""
     echo "📦 Docker 管理"
@@ -220,7 +226,11 @@ show_summary() {
     echo "   /opt/sub-store"
     echo ""
     echo "💡 使用说明"
-    echo "   1. 访问 Web UI: http://${IP}:3001"
+    if [[ -n "$BACKEND_PATH" ]]; then
+        echo "   1. 浏览器访问: http://${IP}:3001?api=http://${IP}:3001/$BACKEND_PATH"
+    else
+        echo "   1. 浏览器访问: http://${IP}:3001"
+    fi
     echo "   2. 添加订阅源（Clash/V2Ray/等）"
     echo "   3. 创建订阅集合"
     echo "   4. 选择输出格式: sing-box"
