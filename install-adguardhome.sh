@@ -2,6 +2,10 @@
 # AdGuard Home 安装脚本
 # 在 AdGuard Home VM 上运行：bash install-adguardhome.sh
 # 或在线运行：curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-adguardhome.sh | bash
+# 调试模式：DEBUG=1 bash install-adguardhome.sh
+
+# 启用调试模式
+[ "$DEBUG" = "1" ] && set -x
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -81,17 +85,32 @@ install_deps() {
 free_port_53() {
     msg_info "释放端口 53..."
     
-    if systemctl is-active --quiet systemd-resolved; then
+    # 检查并停止 systemd-resolved
+    if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
+        msg_info "停止 systemd-resolved..."
         systemctl stop systemd-resolved
         systemctl disable systemd-resolved
+        msg_ok "systemd-resolved 已停止"
+    else
+        msg_info "systemd-resolved 未运行，跳过"
     fi
     
+    # 配置 DNS
+    msg_info "配置 DNS..."
+    chattr -i /etc/resolv.conf 2>/dev/null || true
     rm -f /etc/resolv.conf
+    
     cat > /etc/resolv.conf <<EOF
 nameserver 223.5.5.5
 nameserver 8.8.8.8
 EOF
-    chattr +i /etc/resolv.conf
+    
+    # 设置为只读
+    if command -v chattr &>/dev/null; then
+        chattr +i /etc/resolv.conf || msg_warn "无法设置 resolv.conf 为只读"
+    else
+        msg_warn "chattr 命令不存在，跳过设置 resolv.conf 只读"
+    fi
     
     msg_ok "端口 53 已释放"
 }
@@ -100,10 +119,32 @@ install_adguard() {
     msg_info "下载 AdGuard Home..."
     
     URL="https://static.adguard.com/adguardhome/release/AdGuardHome_${ARCH}.tar.gz"
-    wget -q --show-progress "$URL" -O /tmp/agh.tar.gz || msg_error "下载失败"
+    msg_info "下载地址: $URL"
     
-    tar -xzf /tmp/agh.tar.gz -C /opt/
+    # 使用 wget 或 curl 下载
+    if command -v wget &>/dev/null; then
+        if [ -t 1 ]; then
+            # 终端环境，显示进度
+            wget --show-progress "$URL" -O /tmp/agh.tar.gz
+        else
+            # 非终端环境，静默下载
+            wget -q "$URL" -O /tmp/agh.tar.gz
+        fi
+    else
+        curl -fsSL "$URL" -o /tmp/agh.tar.gz
+    fi
+    
+    if [ $? -ne 0 ] || [ ! -f /tmp/agh.tar.gz ] || [ ! -s /tmp/agh.tar.gz ]; then
+        msg_error "下载失败，请检查网络连接"
+    fi
+    
+    msg_info "解压文件..."
+    tar -xzf /tmp/agh.tar.gz -C /opt/ || msg_error "解压失败"
     rm -f /tmp/agh.tar.gz
+    
+    if [ ! -f /opt/AdGuardHome/AdGuardHome ]; then
+        msg_error "安装失败，AdGuard Home 可执行文件不存在"
+    fi
     
     msg_ok "AdGuard Home 安装完成"
 }

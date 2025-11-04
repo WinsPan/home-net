@@ -2,6 +2,10 @@
 # sing-box + Clash转换服务 一体化安装脚本
 # 在 sing-box VM 上运行：bash install-singbox.sh
 # 或在线运行：curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox.sh | bash
+# 调试模式：DEBUG=1 bash install-singbox.sh
+
+# 启用调试模式
+[ "$DEBUG" = "1" ] && set -x
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
