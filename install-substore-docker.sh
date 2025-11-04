@@ -43,6 +43,7 @@ check_system() {
 install_docker() {
     if command -v docker &>/dev/null; then
         msg_ok "Docker 已安装: $(docker --version)"
+        setup_docker_mirror
         return
     fi
     
@@ -67,11 +68,43 @@ install_docker() {
     apt-get update -qq
     apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     
+    # 配置国内镜像源
+    setup_docker_mirror
+    
     # 启动 Docker
     systemctl enable docker
     systemctl start docker
     
     msg_ok "Docker $(docker --version) 安装完成"
+}
+
+setup_docker_mirror() {
+    msg_info "配置 Docker 国内镜像源..."
+    
+    mkdir -p /etc/docker
+    cat > /etc/docker/daemon.json <<'EOF'
+{
+  "registry-mirrors": [
+    "https://docker.mirrors.sjtug.sjtu.edu.cn",
+    "https://docker.nju.edu.cn",
+    "https://mirror.ccs.tencentyun.com",
+    "https://docker.m.daocloud.io"
+  ],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+    
+    # 重启 Docker 使配置生效
+    if systemctl is-active --quiet docker; then
+        systemctl restart docker
+        msg_ok "Docker 镜像源配置完成"
+    else
+        msg_info "Docker 未运行，镜像源配置已保存"
+    fi
 }
 
 deploy_substore() {
