@@ -107,20 +107,18 @@ download_geofiles() {
     mkdir -p /usr/local/share/sing-box
     cd /usr/local/share/sing-box
     
-    # 使用代理下载（如果设置了 PROXY 环境变量）
-    local WGET_OPTS=""
-    if [ -n "$PROXY" ]; then
-        msg_info "使用代理: $PROXY"
-        export http_proxy="$PROXY"
-        export https_proxy="$PROXY"
-        WGET_OPTS="-e use_proxy=yes -e http_proxy=$PROXY -e https_proxy=$PROXY"
-    fi
+    # 使用 GitHub 镜像加速
+    local GITHUB_PROXY="https://mirror.ghproxy.com/"
     
-    msg_info "下载 geoip.db..."
-    wget -q --show-progress $WGET_OPTS https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db || msg_error "下载 geoip.db 失败"
+    msg_info "下载 geoip.db (使用镜像加速)..."
+    wget -q --show-progress "${GITHUB_PROXY}https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db" -O geoip.db || \
+        wget -q --show-progress "https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db" || \
+        msg_error "下载 geoip.db 失败"
     
-    msg_info "下载 geosite.db..."
-    wget -q --show-progress $WGET_OPTS https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db || msg_error "下载 geosite.db 失败"
+    msg_info "下载 geosite.db (使用镜像加速)..."
+    wget -q --show-progress "${GITHUB_PROXY}https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db" -O geosite.db || \
+        wget -q --show-progress "https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db" || \
+        msg_error "下载 geosite.db 失败"
     
     msg_ok "地理数据库完成"
 }
