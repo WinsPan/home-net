@@ -64,15 +64,21 @@ function install_mihomo() {
 }
 
 function get_subscription() {
-    read -p "机场订阅地址: " SUBSCRIPTION_URL
-    while [ -z "$SUBSCRIPTION_URL" ]; do
-        msg_error "订阅地址不能为空"
+    # 优先使用环境变量（远程执行时）
+    if [ -z "$SUBSCRIPTION_URL" ]; then
+        # 交互式输入
         read -p "机场订阅地址: " SUBSCRIPTION_URL
-    done
+        while [ -z "$SUBSCRIPTION_URL" ]; do
+            msg_error "订阅地址不能为空"
+            read -p "机场订阅地址: " SUBSCRIPTION_URL
+        done
+    fi
     
     if [[ ! "$SUBSCRIPTION_URL" =~ ^https?:// ]]; then
-        msg_error "订阅地址格式错误"
+        msg_error "订阅地址格式错误: $SUBSCRIPTION_URL"
     fi
+    
+    msg_ok "订阅地址: $SUBSCRIPTION_URL"
 }
 
 function setup_config() {

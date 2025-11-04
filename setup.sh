@@ -151,6 +151,24 @@ function install_mihomo() {
         return
     fi
     
+    # 收集机场订阅地址
+    echo ""
+    read -p "机场订阅地址: " SUBSCRIPTION_URL
+    
+    if [ -z "$SUBSCRIPTION_URL" ]; then
+        msg_error "订阅地址不能为空"
+        sleep 1
+        show_main_menu
+        return
+    fi
+    
+    if [[ ! "$SUBSCRIPTION_URL" =~ ^https?:// ]]; then
+        msg_error "订阅地址格式错误（需要 http:// 或 https://）"
+        sleep 1
+        show_main_menu
+        return
+    fi
+    
     msg_info "连接到 $MIHOMO_IP..."
     
     # 清除旧的SSH host key
@@ -163,7 +181,8 @@ function install_mihomo() {
             show_main_menu
             return
         }
-        ssh $SSH_OPTS root@${MIHOMO_IP} "bash /tmp/install.sh" || {
+        # 通过环境变量传递订阅地址，设置locale和TERM避免警告
+        ssh $SSH_OPTS root@${MIHOMO_IP} "export TERM=xterm LC_ALL=C SUBSCRIPTION_URL='${SUBSCRIPTION_URL}' && bash /tmp/install.sh" || {
             msg_error "安装失败"
             sleep 2
         }
@@ -229,7 +248,8 @@ function install_adguard() {
             show_main_menu
             return
         }
-        ssh $SSH_OPTS root@${ADGUARD_IP} "bash /tmp/install.sh" || {
+        # 设置locale和TERM避免警告
+        ssh $SSH_OPTS root@${ADGUARD_IP} "export TERM=xterm LC_ALL=C && bash /tmp/install.sh" || {
             msg_error "安装失败"
             sleep 2
         }
