@@ -1,11 +1,57 @@
 # 部署指南
 
+## 🏗️ 架构说明
+
+### 核心设计
+
+```
+                    ┌─────────────────────────────────┐
+                    │  RouterOS (10.0.0.2)           │
+                    │  主路由 - 永远在线              │
+                    │  ✓ DNS故障转移                  │
+                    │  ✓ 代理故障转移                 │
+                    └─────────────────────────────────┘
+                              ↓
+                    ┌─────────┴─────────┐
+                    ↓                   ↓
+        ┌───────────────────┐  ┌──────────────────┐
+        │ AdGuard Home      │  │ sing-box         │
+        │ (10.0.0.4)        │  │ (10.0.0.3)       │
+        │ DNS + 去广告      │  │ 代理服务         │
+        │ ✓ 故障→公共DNS    │  │ ✓ 可选使用       │
+        └───────────────────┘  └──────────────────┘
+```
+
+### 关键特性
+
+✅ **RouterOS 是主路由**
+- 所有流量都经过 RouterOS
+- RouterOS 永远不会因为 sing-box 或 AdGuard Home 故障而断网
+
+✅ **DNS 去广告（AdGuard Home）**
+- 默认使用 AdGuard Home 过滤广告
+- AdGuard Home 故障时，自动切换到公共 DNS (223.5.5.5, 8.8.8.8)
+- 30秒健康检查，自动故障转移
+
+✅ **代理服务（sing-box）- 可选**
+- 方式1: 客户端手动配置代理（推荐）
+  - 灵活可控，故障时关闭代理即可
+- 方式2: RouterOS 透明代理（高级）
+  - 自动代理，带故障转移路由
+
+✅ **故障不影响上网**
+- AdGuard Home 故障 → DNS 自动切换到公共 DNS
+- sing-box 故障 → 关闭代理或走直连路由
+- RouterOS 主路由始终工作正常
+
+---
+
 ## 📋 IP地址规划
 
 ```
-RouterOS (主路由):  10.0.0.2
-sing-box (代理):    10.0.0.3
-AdGuard Home (DNS): 10.0.0.4
+RouterOS (主路由):  10.0.0.2  ← 核心，永远在线
+sing-box (代理):    10.0.0.3  ← 可选，故障不影响上网
+AdGuard Home (DNS): 10.0.0.4  ← 去广告，有故障转移
 ```
 
 ---
@@ -119,50 +165,250 @@ URL: https://anti-ad.net/easylist.txt
 
 ---
 
-## 🌐 RouterOS 配置
+## 🌐 RouterOS 配置（关键！）
 
-### DNS配置
+> **重要：RouterOS 是主路由，所有配置都包含故障转移机制，确保 sing-box 或 AdGuard Home 故障时不影响上网。**
+
+---
+
+### 架构说明
+
+```
+客户端
+  ↓
+RouterOS (10.0.0.2) ← 主路由，永远在线
+  ↓
+  ├→ DNS: AdGuard Home (10.0.0.4) ← 去广告，有故障转移
+  └→ 代理: sing-box (10.0.0.3) ← 可选，客户端手动配置
+```
+
+---
+
+### 一、DNS配置（带故障转移）⭐
+
+**确保 AdGuard Home 故障时自动切换到公共DNS**
 
 ```routeros
-# 设置DHCP DNS为AdGuard Home
-/ip dhcp-server network
-set [find] dns-server=10.0.0.4
-
-# 设置路由器自身DNS
+# 1. 设置路由器自身DNS（主用 AdGuard Home）
 /ip dns
-set servers=10.0.0.4
+set servers=10.0.0.4,223.5.5.5,8.8.8.8
 set allow-remote-requests=yes
+
+# 2. 设置DHCP分配的DNS（客户端使用）
+/ip dhcp-server network
+set [find] dns-server=10.0.0.4,223.5.5.5
+
+# 说明：
+# - servers 列表中，优先使用第一个DNS
+# - 如果第一个DNS (10.0.0.4) 无响应，自动使用后面的DNS
+# - 这样即使 AdGuard Home 故障，DNS依然可用
 ```
 
-### 健康检查（可选）
+---
+
+### 二、DNS 健康检查（推荐）⭐⭐
+
+**主动监控 AdGuard Home，故障时自动切换**
 
 ```routeros
-# 添加DNS健康检查
+# 创建 AdGuard Home 健康检查
 /tool netwatch
-add host=10.0.0.4 interval=30s timeout=5s down-script={
-  /ip dns set servers=223.5.5.5,8.8.8.8
-} up-script={
-  /ip dns set servers=10.0.0.4
-}
+add host=10.0.0.4 \
+    interval=30s \
+    timeout=5s \
+    comment="AdGuard Home Health Check" \
+    down-script={
+        :log warning "AdGuard Home DOWN! Switching to public DNS"
+        /ip dns set servers=223.5.5.5,8.8.8.8
+        /ip dhcp-server network set [find] dns-server=223.5.5.5,8.8.8.8
+    } \
+    up-script={
+        :log info "AdGuard Home UP! Restoring AdGuard DNS"
+        /ip dns set servers=10.0.0.4,223.5.5.5,8.8.8.8
+        /ip dhcp-server network set [find] dns-server=10.0.0.4,223.5.5.5
+    }
+
+# 说明：
+# - 每30秒检查一次 AdGuard Home 是否在线
+# - 故障时：切换到公共DNS (223.5.5.5, 8.8.8.8)
+# - 恢复时：自动切回 AdGuard Home
+# - 整个过程自动完成，用户无感知
 ```
 
-### 透明代理（可选）
+---
 
-如果需要透明代理所有流量：
+### 三、sing-box 代理配置（可选）
+
+> **说明：sing-box 代理是可选的，不影响基本上网功能**
+
+#### 方式 1：客户端手动配置（推荐）⭐
+
+**优点：灵活可控，不影响其他设备**
+
+客户端设置代理：
+```
+HTTP/HTTPS 代理: 10.0.0.3:7890
+SOCKS5 代理: 10.0.0.3:7890
+
+# Windows: 设置 → 网络 → 代理
+# macOS: 系统偏好设置 → 网络 → 高级 → 代理
+# iOS/Android: WiFi设置 → 配置代理
+```
+
+即使 sing-box 故障，只需关闭代理设置即可正常上网。
+
+#### 方式 2：RouterOS 透明代理（高级）
+
+**优点：自动代理，无需客户端配置**  
+**缺点：sing-box 故障时需要手动处理**
 
 ```routeros
-# 1. 标记需要代理的流量
+# 1. 创建中国IP地址列表（直连）
+/ip firewall address-list
+add list=china address=10.0.0.0/8
+add list=china address=172.16.0.0/12
+add list=china address=192.168.0.0/16
+
+# 2. 标记需要代理的流量（非中国IP）
 /ip firewall mangle
-add chain=prerouting src-address=192.168.1.0/24 \
-    dst-address-list=!china action=mark-routing new-routing-mark=proxy
+add chain=prerouting \
+    src-address=192.168.88.0/24 \
+    dst-address-list=!china \
+    protocol=tcp \
+    dst-port=80,443 \
+    action=mark-routing \
+    new-routing-mark=proxy \
+    comment="Mark traffic for sing-box proxy"
 
-# 2. 路由到sing-box
+# 3. 创建代理路由（带健康检查）
 /ip route
-add dst-address=0.0.0.0/0 gateway=10.0.0.3 routing-mark=proxy
+add dst-address=0.0.0.0/0 \
+    gateway=10.0.0.3 \
+    routing-mark=proxy \
+    distance=1 \
+    check-gateway=ping \
+    comment="Route to sing-box"
 
-# 3. NAT配置
+# 4. 添加备用直连路由（sing-box故障时使用）
+/ip route
+add dst-address=0.0.0.0/0 \
+    gateway=[WAN网关IP] \
+    routing-mark=proxy \
+    distance=2 \
+    comment="Fallback direct route"
+
+# 5. NAT配置
 /ip firewall nat
-add chain=srcnat out-interface-list=WAN action=masquerade
+add chain=srcnat \
+    out-interface=[WAN接口] \
+    action=masquerade
+
+# 说明：
+# - check-gateway=ping: 自动检测 sing-box 是否在线
+# - distance=1/2: 优先使用 sing-box，故障时自动使用备用路由
+# - 这样即使 sing-box 故障，流量会自动走直连
+```
+
+#### sing-box 健康检查（透明代理时使用）
+
+```routeros
+/tool netwatch
+add host=10.0.0.3 \
+    interval=30s \
+    timeout=5s \
+    comment="sing-box Health Check" \
+    down-script={
+        :log warning "sing-box DOWN! Traffic will use fallback route"
+        # 路由会自动切换，无需额外操作
+    } \
+    up-script={
+        :log info "sing-box UP! Proxy route restored"
+    }
+```
+
+---
+
+### 完整配置脚本（推荐配置）
+
+```routeros
+# ============================================
+# RouterOS 完整配置（带故障转移）
+# ============================================
+
+# 1. DNS配置（AdGuard Home + 故障转移）
+/ip dns
+set servers=10.0.0.4,223.5.5.5,8.8.8.8
+set allow-remote-requests=yes
+
+/ip dhcp-server network
+set [find] dns-server=10.0.0.4,223.5.5.5
+
+# 2. AdGuard Home 健康检查
+/tool netwatch
+add host=10.0.0.4 \
+    interval=30s \
+    timeout=5s \
+    comment="AdGuard Home Health Check" \
+    down-script={
+        :log warning "AdGuard Home DOWN! Switching to public DNS"
+        /ip dns set servers=223.5.5.5,8.8.8.8
+        /ip dhcp-server network set [find] dns-server=223.5.5.5,8.8.8.8
+    } \
+    up-script={
+        :log info "AdGuard Home UP! Restoring AdGuard DNS"
+        /ip dns set servers=10.0.0.4,223.5.5.5,8.8.8.8
+        /ip dhcp-server network set [find] dns-server=10.0.0.4,223.5.5.5
+    }
+
+# 3. sing-box 健康检查（监控用）
+/tool netwatch
+add host=10.0.0.3 \
+    interval=30s \
+    timeout=5s \
+    comment="sing-box Health Check"
+
+# 完成！
+# - DNS 自动故障转移：AdGuard Home 故障时自动切换到公共DNS
+# - 代理可选：客户端手动配置代理，或者使用透明代理
+# - 即使两个服务都故障，RouterOS 主路由仍然正常工作
+```
+
+---
+
+### 验证故障转移
+
+#### 测试 AdGuard Home 故障转移
+
+```bash
+# 1. 停止 AdGuard Home
+ssh root@10.0.0.4 'systemctl stop AdGuardHome'
+
+# 2. 客户端测试DNS（应该仍然正常）
+nslookup google.com
+
+# 3. 查看 RouterOS 日志
+# 应该看到：AdGuard Home DOWN! Switching to public DNS
+
+# 4. 恢复 AdGuard Home
+ssh root@10.0.0.4 'systemctl start AdGuardHome'
+
+# 5. 查看 RouterOS 日志
+# 应该看到：AdGuard Home UP! Restoring AdGuard DNS
+```
+
+#### 测试 sing-box 故障（如果使用透明代理）
+
+```bash
+# 1. 停止 sing-box
+ssh root@10.0.0.3 'systemctl stop sing-box'
+
+# 2. 客户端测试上网（应该仍然正常，走直连）
+curl https://www.google.com
+
+# 3. 恢复 sing-box
+ssh root@10.0.0.3 'systemctl start sing-box'
+
+# 4. 客户端测试（应该恢复走代理）
 ```
 
 ---
