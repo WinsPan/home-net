@@ -79,16 +79,16 @@ install_docker() {
 }
 
 setup_docker_mirror() {
-    msg_info "配置 Docker 国内镜像源..."
+    msg_info "配置 Docker 国内镜像源（轩辕镜像）..."
     
     mkdir -p /etc/docker
     cat > /etc/docker/daemon.json <<'EOF'
 {
   "registry-mirrors": [
+    "https://docker.xuanyuan.me",
     "https://docker.mirrors.sjtug.sjtu.edu.cn",
     "https://docker.nju.edu.cn",
-    "https://mirror.ccs.tencentyun.com",
-    "https://docker.m.daocloud.io"
+    "https://mirror.ccs.tencentyun.com"
   ],
   "log-driver": "json-file",
   "log-opts": {
@@ -101,7 +101,7 @@ EOF
     # 重启 Docker 使配置生效
     if systemctl is-active --quiet docker; then
         systemctl restart docker
-        msg_ok "Docker 镜像源配置完成"
+        msg_ok "Docker 镜像源配置完成（轩辕镜像优先）"
     else
         msg_info "Docker 未运行，镜像源配置已保存"
     fi
