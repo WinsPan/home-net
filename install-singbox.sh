@@ -87,12 +87,40 @@ install_deps() {
 
 get_subscription() {
     echo ""
-    read -p "订阅地址: " SUB_URL
+    
+    # 如果环境变量已设置，直接使用
+    if [ -n "$SUB_URL" ]; then
+        msg_info "使用环境变量订阅地址: $SUB_URL"
+    else
+        # 从终端读取输入（支持管道运行）
+        if [ -t 0 ]; then
+            # 标准输入是终端
+            read -p "订阅地址: " SUB_URL
+        else
+            # 标准输入被重定向，切换到 /dev/tty
+            exec < /dev/tty
+            read -p "订阅地址: " SUB_URL
+        fi
+    fi
+    
     [ -z "$SUB_URL" ] && msg_error "订阅地址不能为空"
     [[ ! "$SUB_URL" =~ ^https?:// ]] && msg_error "订阅地址格式错误"
+    msg_ok "订阅地址: $SUB_URL"
     
     echo ""
-    read -p "订阅格式 (1=sing-box, 2=Clash需转换) [1]: " SUB_TYPE
+    
+    # 订阅类型配置
+    if [ -n "$SUB_TYPE" ]; then
+        msg_info "使用环境变量订阅类型: $SUB_TYPE"
+    else
+        if [ -t 0 ]; then
+            read -p "订阅格式 (1=sing-box, 2=Clash需转换) [1]: " SUB_TYPE
+        else
+            exec < /dev/tty
+            read -p "订阅格式 (1=sing-box, 2=Clash需转换) [1]: " SUB_TYPE
+        fi
+    fi
+    
     SUB_TYPE=${SUB_TYPE:-1}
     
     if [ "$SUB_TYPE" = "2" ]; then

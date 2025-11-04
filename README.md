@@ -33,9 +33,22 @@ bash create-vm.sh
 
 ### 2. 安装sing-box（10.0.0.3）
 
+**方式1：交互式安装（推荐新手）**
 ```bash
 ssh root@10.0.0.3
 curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox.sh | bash
+# 根据提示输入订阅地址和类型
+```
+
+**方式2：一键安装（适合自动化）**
+```bash
+ssh root@10.0.0.3
+SUB_URL="你的订阅地址" \
+SUB_TYPE="2" \
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox.sh)"
+
+# SUB_TYPE=1: sing-box订阅（无需转换）
+# SUB_TYPE=2: Clash订阅（自动转换）
 ```
 
 ### 3. 安装AdGuard Home（10.0.0.4）
