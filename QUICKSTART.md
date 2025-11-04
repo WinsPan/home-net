@@ -14,8 +14,21 @@
 
 ## 一键部署
 
+### 方式 1：在线安装（推荐）⭐
+
 ```bash
-# 在 Proxmox 节点运行
+# 在 Proxmox 节点运行（需要 root 权限）
+curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install.sh | bash
+```
+
+**安装后使用：**
+```bash
+boomdns setup     # 开始部署
+```
+
+### 方式 2：Git 克隆
+
+```bash
 git clone https://github.com/WinsPan/home-net.git
 cd home-net
 bash setup.sh
