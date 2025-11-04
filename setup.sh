@@ -26,7 +26,7 @@ function header() {
 ║                                                          ║
 ║           BoomDNS 家庭网络解决方案                        ║
 ║                                                          ║
-║   mihomo (代理分流) + AdGuard Home (广告过滤)             ║
+║   sing-box (通用代理) + AdGuard Home (广告过滤)           ║
 ║                                                          ║
 ╚══════════════════════════════════════════════════════════╝
 EOF
@@ -60,7 +60,7 @@ function show_guide() {
     echo "🎯 部署流程（3步）："
     echo ""
     echo "  第一步：在 PVE 节点创建 VM"
-    echo "  第二步：在 mihomo VM 安装服务"
+    echo "  第二步：在 sing-box VM 安装服务"
     echo "  第三步：在 AdGuard Home VM 安装服务"
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -68,11 +68,11 @@ function show_guide() {
     
     msg_step "第一步：创建 VM（在当前 PVE 节点执行）"
     echo ""
-    echo "  1️⃣  创建 mihomo VM："
+    echo "  1️⃣  创建 sing-box VM："
     echo "      bash vm/create-vm.sh"
     echo ""
     echo "      配置建议："
-    echo "        VM 名称: mihomo"
+    echo "        VM 名称: sing-box"
     echo "        VMID: 101"
     echo "        CPU: 2 核"
     echo "        内存: 2048 MB"
@@ -93,19 +93,19 @@ function show_guide() {
     echo "        网关: 10.0.0.2"
     echo ""
     
-    msg_step "第二步：安装 mihomo（SSH 登录 mihomo VM 执行）"
+    msg_step "第二步：安装 sing-box（SSH 登录 sing-box VM 执行）"
     echo ""
-    echo "  SSH 登录 mihomo VM："
+    echo "  SSH 登录 sing-box VM："
     echo "      ssh root@10.0.0.3"
     echo ""
-    echo "  在 mihomo VM 上运行安装脚本："
-    echo "      curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/services/mihomo/install.sh | bash"
+    echo "  在 sing-box VM 上运行安装脚本："
+    echo "      curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/services/sing-box/install.sh | bash"
     echo ""
     echo "  或者使用本地脚本："
-    echo "      scp services/mihomo/install.sh root@10.0.0.3:/tmp/"
+    echo "      scp services/sing-box/install.sh root@10.0.0.3:/tmp/"
     echo "      ssh root@10.0.0.3 'bash /tmp/install.sh'"
     echo ""
-    echo "  根据提示输入机场订阅地址"
+    echo "  根据提示输入订阅地址"
     echo ""
     
     msg_step "第三步：安装 AdGuard Home（SSH 登录 AdGuard Home VM 执行）"
@@ -146,7 +146,7 @@ function show_quick_commands() {
     
     echo "📦 第一步：创建 VM"
     echo ""
-    echo "# 创建 mihomo VM"
+    echo "# 创建 sing-box VM"
     echo "bash vm/create-vm.sh"
     echo ""
     echo "# 创建 AdGuard Home VM"
@@ -156,13 +156,13 @@ function show_quick_commands() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
     
-    echo "🚀 第二步：安装 mihomo"
+    echo "🚀 第二步：安装 sing-box"
     echo ""
     echo "# 方式 1：在线安装（推荐）"
-    echo "ssh root@10.0.0.3 'curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/services/mihomo/install.sh | bash'"
+    echo "ssh root@10.0.0.3 'curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/services/sing-box/install.sh | bash'"
     echo ""
     echo "# 方式 2：本地脚本"
-    echo "scp services/mihomo/install.sh root@10.0.0.3:/tmp/ && ssh root@10.0.0.3 'bash /tmp/install.sh'"
+    echo "scp services/sing-box/install.sh root@10.0.0.3:/tmp/ && ssh root@10.0.0.3 'bash /tmp/install.sh'"
     echo ""
     
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -190,7 +190,7 @@ function show_quick_commands() {
     
     echo "📋 服务访问地址："
     echo ""
-    echo "  mihomo 管理面板: http://10.0.0.3:9090"
+    echo "  sing-box 管理面板: http://10.0.0.3:9090"
     echo "  AdGuard Home:    http://10.0.0.4:3000"
     echo ""
     

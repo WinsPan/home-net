@@ -23,7 +23,7 @@ function show_banner() {
     cat <<"EOF"
 ╔══════════════════════════════════════╗
 ║      BoomDNS 在线安装                ║
-║   mihomo + AdGuard Home              ║
+║   sing-box + AdGuard Home              ║
 ╚══════════════════════════════════════╝
 EOF
     echo ""
@@ -53,7 +53,7 @@ function download_scripts() {
     msg_info "下载脚本到 ${INSTALL_DIR}..."
     
     # 创建目录
-    mkdir -p ${INSTALL_DIR}/{vm,services/{mihomo,adguardhome},routeros,docs}
+    mkdir -p ${INSTALL_DIR}/{vm,services/{sing-box,adguardhome},routeros,docs}
     
     # 下载主脚本
     curl -fsSL ${REPO}/setup.sh -o ${INSTALL_DIR}/setup.sh
@@ -61,8 +61,8 @@ function download_scripts() {
     # 下载 VM 创建脚本
     curl -fsSL ${REPO}/vm/create-vm.sh -o ${INSTALL_DIR}/vm/create-vm.sh
     
-    # 下载 mihomo 脚本
-    curl -fsSL ${REPO}/services/mihomo/install.sh -o ${INSTALL_DIR}/services/mihomo/install.sh
+    # 下载 sing-box 脚本
+    curl -fsSL ${REPO}/services/sing-box/install.sh -o ${INSTALL_DIR}/services/sing-box/install.sh
     
     # 下载 AdGuard 脚本
     curl -fsSL ${REPO}/services/adguardhome/install.sh -o ${INSTALL_DIR}/services/adguardhome/install.sh
@@ -77,7 +77,7 @@ function download_scripts() {
     # 设置执行权限
     chmod +x ${INSTALL_DIR}/setup.sh
     chmod +x ${INSTALL_DIR}/vm/create-vm.sh
-    chmod +x ${INSTALL_DIR}/services/mihomo/*.sh
+    chmod +x ${INSTALL_DIR}/services/sing-box/*.sh
     chmod +x ${INSTALL_DIR}/services/adguardhome/*.sh
     chmod +x ${INSTALL_DIR}/routeros/*.sh
     
@@ -122,8 +122,8 @@ case "$1" in
   boomdns setup
 
 服务安装（在对应 VM 上运行）:
-  # mihomo (在 10.0.0.3)
-  curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/services/mihomo/install.sh | bash
+  # sing-box (在 10.0.0.3)
+  curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/services/sing-box/install.sh | bash
   
   # AdGuard Home (在 10.0.0.4)
   curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/services/adguardhome/install.sh | bash
@@ -150,7 +150,7 @@ function show_summary() {
     echo "  ${GREEN}boomdns setup${NC}          # 一键部署"
     echo ""
     echo "其他命令:"
-    echo "  ${GREEN}boomdns mihomo${NC}         # 管理 mihomo"
+    echo "  ${GREEN}boomdns sing-box${NC}         # 管理 sing-box"
     echo "  ${GREEN}boomdns create-vm${NC}      # 创建 VM"
     echo "  ${GREEN}boomdns adguard${NC}        # 安装 AdGuard"
     echo "  ${GREEN}boomdns routeros${NC}       # 生成 RouterOS 配置"
