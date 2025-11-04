@@ -18,6 +18,17 @@ function msg_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 function msg_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 function msg_step() { echo -e "${CYAN}[STEP]${NC} $1"; }
 
+# 清除SSH known_hosts，避免host key验证失败
+function clear_ssh_host_key() {
+    local ip=$1
+    if [ -f ~/.ssh/known_hosts ]; then
+        ssh-keygen -f ~/.ssh/known_hosts -R "$ip" &>/dev/null || true
+    fi
+}
+
+# SSH连接选项（跳过严格host key检查，使用密码认证）
+SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PasswordAuthentication=yes"
+
 function header() {
     clear
     cat <<"EOF"
@@ -142,14 +153,17 @@ function install_mihomo() {
     
     msg_info "连接到 $MIHOMO_IP..."
     
+    # 清除旧的SSH host key
+    clear_ssh_host_key "$MIHOMO_IP"
+    
     if [ -f "$SCRIPT_DIR/services/mihomo/install.sh" ]; then
-        scp "$SCRIPT_DIR/services/mihomo/install.sh" root@${MIHOMO_IP}:/tmp/ || {
+        scp $SSH_OPTS "$SCRIPT_DIR/services/mihomo/install.sh" root@${MIHOMO_IP}:/tmp/ || {
             msg_error "无法连接到 VM，请检查 IP 和网络"
             sleep 2
             show_main_menu
             return
         }
-        ssh root@${MIHOMO_IP} "bash /tmp/install.sh" || {
+        ssh $SSH_OPTS root@${MIHOMO_IP} "bash /tmp/install.sh" || {
             msg_error "安装失败"
             sleep 2
         }
@@ -175,8 +189,11 @@ function manage_mihomo() {
         return
     fi
     
+    # 清除旧的SSH host key
+    clear_ssh_host_key "$MIHOMO_IP"
+    
     if [ -f "$SCRIPT_DIR/services/mihomo/manage.sh" ]; then
-        ssh -t root@${MIHOMO_IP} "bash -c \"\$(cat)\"" < "$SCRIPT_DIR/services/mihomo/manage.sh" || {
+        ssh $SSH_OPTS -t root@${MIHOMO_IP} "bash -c \"\$(cat)\"" < "$SCRIPT_DIR/services/mihomo/manage.sh" || {
             msg_error "无法连接到 VM"
             sleep 2
         }
@@ -202,14 +219,17 @@ function install_adguard() {
     
     msg_info "连接到 $ADGUARD_IP..."
     
+    # 清除旧的SSH host key
+    clear_ssh_host_key "$ADGUARD_IP"
+    
     if [ -f "$SCRIPT_DIR/services/adguardhome/install.sh" ]; then
-        scp "$SCRIPT_DIR/services/adguardhome/install.sh" root@${ADGUARD_IP}:/tmp/ || {
+        scp $SSH_OPTS "$SCRIPT_DIR/services/adguardhome/install.sh" root@${ADGUARD_IP}:/tmp/ || {
             msg_error "无法连接到 VM"
             sleep 2
             show_main_menu
             return
         }
-        ssh root@${ADGUARD_IP} "bash /tmp/install.sh" || {
+        ssh $SSH_OPTS root@${ADGUARD_IP} "bash /tmp/install.sh" || {
             msg_error "安装失败"
             sleep 2
         }
