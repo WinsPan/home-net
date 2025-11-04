@@ -3,16 +3,16 @@
 # 在 AdGuard Home VM 上运行：bash install-adguardhome.sh
 # 或在线运行：curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-adguardhome.sh | bash
 
-set -e
-
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
 
 msg_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 msg_ok() { echo -e "${GREEN}[OK]${NC} $1"; }
 msg_error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+msg_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 
 header() {
     clear
@@ -23,28 +23,59 @@ header() {
 }
 
 check_root() {
-    [ "$EUID" -ne 0 ] && msg_error "需要 root 权限"
+    if [ "$EUID" -ne 0 ]; then
+        msg_error "需要 root 权限，请使用: sudo bash install-adguardhome.sh"
+    fi
+    msg_info "Root 权限检查通过"
 }
 
 check_system() {
-    [ ! -f /etc/debian_version ] && msg_error "仅支持 Debian 系统"
+    msg_info "检查系统..."
+    
+    if [ ! -f /etc/os-release ]; then
+        msg_error "无法检测系统类型，需要 /etc/os-release 文件"
+    fi
+    
+    # 读取系统信息
+    . /etc/os-release
+    msg_info "检测到系统: $PRETTY_NAME"
+    
+    # 检查是否是 Debian 系列
+    if [[ "$ID" != "debian" ]] && [[ "$ID_LIKE" != *"debian"* ]]; then
+        msg_error "仅支持 Debian/Ubuntu 系统，当前系统: $ID"
+    fi
+    
     msg_ok "系统检查通过"
 }
 
 detect_arch() {
-    case $(uname -m) in
+    local machine_arch=$(uname -m)
+    msg_info "检测到架构: $machine_arch"
+    
+    case $machine_arch in
         x86_64) ARCH="linux_amd64" ;;
         aarch64) ARCH="linux_arm64" ;;
-        *) msg_error "不支持的架构: $(uname -m)" ;;
+        *) msg_error "不支持的架构: $machine_arch" ;;
     esac
+    
+    msg_ok "架构: $ARCH"
 }
 
 install_deps() {
     msg_info "安装依赖..."
     export DEBIAN_FRONTEND=noninteractive
-    apt-get update -qq
-    apt-get install -y -qq curl wget tar &>/dev/null
-    msg_ok "依赖完成"
+    
+    msg_info "更新软件包列表..."
+    if ! apt-get update -qq; then
+        msg_error "apt-get update 失败，请检查网络连接和源配置"
+    fi
+    
+    msg_info "安装系统依赖包..."
+    if ! apt-get install -y -qq curl wget tar 2>&1 | grep -v "^$"; then
+        msg_warn "部分依赖包安装可能有警告，但继续执行..."
+    fi
+    
+    msg_ok "依赖安装完成"
 }
 
 free_port_53() {
@@ -120,16 +151,44 @@ show_summary() {
 }
 
 main() {
+    # 显示标题
     header
+    
+    # 步骤 1: 检查权限
+    msg_info "步骤 1/7: 检查权限..."
     check_root
+    
+    # 步骤 2: 检查系统
+    msg_info "步骤 2/7: 检查系统..."
     check_system
+    
+    # 步骤 3: 检测架构
+    msg_info "步骤 3/7: 检测架构..."
     detect_arch
+    
+    # 步骤 4: 安装依赖
+    msg_info "步骤 4/7: 安装依赖..."
     install_deps
+    
+    # 步骤 5: 释放端口 53
+    msg_info "步骤 5/7: 释放端口 53..."
     free_port_53
+    
+    # 步骤 6: 安装 AdGuard Home
+    msg_info "步骤 6/7: 安装 AdGuard Home..."
     install_adguard
+    
+    # 步骤 7: 配置服务
+    msg_info "步骤 7/7: 配置服务..."
     setup_service
+    
+    # 完成
     show_summary
 }
+
+# 捕获错误
+set -E
+trap 'msg_error "安装过程中发生错误，请检查上述输出"' ERR
 
 main
 

@@ -3,8 +3,6 @@
 # 在 sing-box VM 上运行：bash install-singbox.sh
 # 或在线运行：curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox.sh | bash
 
-set -e
-
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -25,29 +23,65 @@ header() {
 }
 
 check_root() {
-    [ "$EUID" -ne 0 ] && msg_error "需要 root 权限"
+    if [ "$EUID" -ne 0 ]; then
+        msg_error "需要 root 权限，请使用: sudo bash install-singbox.sh"
+    fi
+    msg_info "Root 权限检查通过"
 }
 
 check_system() {
-    [ ! -f /etc/debian_version ] && msg_error "仅支持 Debian 系统"
+    msg_info "检查系统..."
+    
+    if [ ! -f /etc/os-release ]; then
+        msg_error "无法检测系统类型，需要 /etc/os-release 文件"
+    fi
+    
+    # 读取系统信息
+    . /etc/os-release
+    msg_info "检测到系统: $PRETTY_NAME"
+    
+    # 检查是否是 Debian 系列
+    if [[ "$ID" != "debian" ]] && [[ "$ID_LIKE" != *"debian"* ]]; then
+        msg_error "仅支持 Debian/Ubuntu 系统，当前系统: $ID"
+    fi
+    
     msg_ok "系统检查通过"
 }
 
 detect_arch() {
-    case $(uname -m) in
+    local machine_arch=$(uname -m)
+    msg_info "检测到架构: $machine_arch"
+    
+    case $machine_arch in
         x86_64) ARCH="amd64" ;;
         aarch64) ARCH="arm64" ;;
         armv7l) ARCH="armv7" ;;
-        *) msg_error "不支持的架构: $(uname -m)" ;;
+        *) msg_error "不支持的架构: $machine_arch" ;;
     esac
+    
+    msg_ok "架构: $ARCH"
 }
 
 install_deps() {
     msg_info "安装依赖..."
     export DEBIAN_FRONTEND=noninteractive
-    apt-get update -qq
-    apt-get install -y -qq curl wget unzip gzip iptables jq python3 python3-pip &>/dev/null
-    pip3 install --quiet pyyaml &>/dev/null
+    
+    msg_info "更新软件包列表..."
+    if ! apt-get update -qq; then
+        msg_error "apt-get update 失败，请检查网络连接和源配置"
+    fi
+    
+    msg_info "安装系统依赖包..."
+    if ! apt-get install -y -qq curl wget unzip gzip iptables jq python3 python3-pip 2>&1 | grep -v "^$"; then
+        msg_warn "部分依赖包安装可能有警告，但继续执行..."
+    fi
+    
+    msg_info "安装 Python 依赖..."
+    if ! pip3 install --quiet pyyaml 2>/dev/null; then
+        msg_warn "pip3 安装 pyyaml 失败，尝试备用方法..."
+        apt-get install -y -qq python3-yaml
+    fi
+    
     msg_ok "依赖安装完成"
 }
 
@@ -241,19 +275,53 @@ show_summary() {
 }
 
 main() {
+    # 显示标题
     header
+    
+    # 步骤 1: 检查权限
+    msg_info "步骤 1/9: 检查权限..."
     check_root
+    
+    # 步骤 2: 检查系统
+    msg_info "步骤 2/9: 检查系统..."
     check_system
+    
+    # 步骤 3: 检测架构
+    msg_info "步骤 3/9: 检测架构..."
     detect_arch
+    
+    # 步骤 4: 获取订阅
+    msg_info "步骤 4/9: 配置订阅..."
     get_subscription
+    
+    # 步骤 5: 安装依赖
+    msg_info "步骤 5/9: 安装依赖..."
     install_deps
+    
+    # 步骤 6: 安装 sing-box
+    msg_info "步骤 6/9: 安装 sing-box..."
     install_singbox
+    
+    # 步骤 7: 下载地理数据库
+    msg_info "步骤 7/9: 下载地理数据库..."
     download_geofiles
+    
+    # 步骤 8: 创建转换服务
+    msg_info "步骤 8/9: 创建转换服务..."
     create_converter
+    
+    # 步骤 9: 配置服务
+    msg_info "步骤 9/9: 配置服务..."
     setup_config
     setup_service
+    
+    # 完成
     show_summary
 }
+
+# 捕获错误
+set -E
+trap 'msg_error "安装过程中发生错误，请检查上述输出"' ERR
 
 main
 
