@@ -10,6 +10,7 @@ mihomo + AdGuard Home + RouterOS 完整解决方案
 - 🚀 **专业 VM 创建** - 基于 [community-scripts](https://github.com/community-scripts/ProxmoxVE) 最佳实践
 - 🎯 **交互式配置** - 友好的配置界面
 - ☁️ **Cloud-init 支持** - 自动化系统配置
+- 🔑 **密码登录** - SSH root 密码认证（无需密钥）
 - 🔧 **完整管理** - mihomo 订阅/配置/透明代理管理
 - 🛡️ **广告过滤** - AdGuard Home 快速部署
 - 🌐 **RouterOS 集成** - 自动生成完整配置

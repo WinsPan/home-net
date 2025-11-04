@@ -115,17 +115,9 @@ function interactive_config() {
     read -sp "root 密码: " ROOT_PASSWORD
     echo ""
     
-    read -p "是否添加 SSH 公钥？(y/n) [n]: " ADD_SSH_KEY
-    if [[ "$ADD_SSH_KEY" =~ ^[Yy]$ ]]; then
-        read -p "SSH 公钥路径 [~/.ssh/id_rsa.pub]: " SSH_KEY_PATH
-        SSH_KEY_PATH=${SSH_KEY_PATH:-~/.ssh/id_rsa.pub}
-        
-        if [ -f "$SSH_KEY_PATH" ]; then
-            SSH_KEY=$(cat "$SSH_KEY_PATH")
-        else
-            msg_error "SSH 公钥文件不存在"
-        fi
-    fi
+    # 不使用 SSH 公钥，仅使用密码登录
+    SSH_KEY=""
+    msg_ok "配置为密码登录模式"
     
     # 自动启动
     read -p "是否随 Proxmox 自动启动？(y/n) [y]: " AUTO_START
@@ -242,6 +234,32 @@ function setup_disk() {
 function setup_cloudinit() {
     msg_info "配置 Cloud-init..."
     
+    # 创建自定义 cloud-init 配置（启用 SSH 密码认证）
+    local snippets_dir="/var/lib/vz/snippets"
+    local userdata_file="${snippets_dir}/vm-${VMID}-userdata.yml"
+    
+    mkdir -p "$snippets_dir"
+    
+    cat > "$userdata_file" << 'USERDATA'
+#cloud-config
+# 启用 SSH 密码认证
+ssh_pwauth: true
+disable_root: false
+chpasswd:
+  expire: false
+
+# SSH 配置
+ssh:
+  allow_users:
+    - root
+
+# 启用 SSH 服务
+runcmd:
+  - sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+  - sed -i 's/PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+  - systemctl restart sshd || systemctl restart ssh
+USERDATA
+    
     # 添加 cloud-init 驱动器
     qm set $VMID -ide2 ${STORAGE}:cloudinit &>/dev/null
     
@@ -255,13 +273,10 @@ function setup_cloudinit() {
     qm set $VMID -ciuser root &>/dev/null
     qm set $VMID -cipassword "$ROOT_PASSWORD" &>/dev/null
     
-    # 配置 SSH 密钥（如果提供）
-    if [ -n "$SSH_KEY" ]; then
-        qm set $VMID -sshkeys <(echo "$SSH_KEY") &>/dev/null
-        msg_ok "SSH 公钥已配置"
-    fi
+    # 应用自定义 cloud-init 配置
+    qm set $VMID -cicustom "user=local:snippets/vm-${VMID}-userdata.yml" &>/dev/null
     
-    msg_ok "Cloud-init 配置完成"
+    msg_ok "Cloud-init 配置完成（已启用 SSH 密码认证）"
 }
 
 # 启动 VM
