@@ -138,7 +138,13 @@ curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-subst
 # 3. 访问 Web UI
 浏览器打开: http://10.0.0.5:3001
 
-# 4. 配置订阅转换
+# 4. 首次访问会显示 API 路径
+⚠️ **重要：请保存 API 路径**
+- Sub-Store 会自动生成一个随机的 API 路径（如: `/CKg3abstVnOeRpm1aB5G`）
+- 这个路径用于保护 API 端点，防止未授权访问
+- 如果忘记路径，可以在 VM 上运行: `cat /opt/sub-store/.backend_path`
+
+# 5. 配置订阅转换
 - 点击 "订阅" → "+" 添加 Clash 订阅源
 - 点击 "集合" → "+" 创建订阅集合
 - 选择输出格式: sing-box
