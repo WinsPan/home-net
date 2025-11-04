@@ -31,39 +31,47 @@ bash create-vm.sh
 # VM名称: adguardhome, VMID: 102, IP: 10.0.0.4/24
 ```
 
-### 2. 安装sing-box（10.0.0.3）
+### 2. 安装 sing-box（10.0.0.3）
 
 ```bash
 ssh root@10.0.0.3
 curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox.sh | bash
 ```
 
-**脚本会自动询问：**
-1. 安装模式：快速（内置转换） / 完整（Sub-Store 管理）
-2. 订阅地址
-3. 订阅格式（快速模式需要）
+**要求：**
+- 订阅必须是 **sing-box 格式**
+- Clash 订阅需要先通过 Sub-Store 转换
 
-**💡 模式选择建议：**
-- **快速模式（1）**：VM 内存 < 2GB，单订阅
-- **完整模式（2）**：VM 内存 ≥ 2GB，多订阅/高级功能
-
-**一键安装（跳过交互）：**
-
+**一键安装：**
 ```bash
-# 快速模式 - Clash 订阅自动转换
-SUB_URL="你的订阅地址" INSTALL_MODE="1" SUB_TYPE="2" \
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox.sh)"
-
-# 完整模式 - Sub-Store 管理（多订阅/高级功能）
-SUB_URL="你的订阅地址" INSTALL_MODE="2" \
+SUB_URL="你的sing-box订阅地址" \
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox.sh)"
 ```
 
-**Sub-Store 完整模式特性：**
-- ✅ Web UI: `http://10.0.0.3:3001`
+---
+
+### 2.5 （可选）部署 Sub-Store 订阅转换
+
+**如果你的订阅是 Clash 格式，需要先部署 Sub-Store 进行转换**
+
+```bash
+ssh root@10.0.0.3
+curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-substore-docker.sh | bash
+```
+
+**Sub-Store 功能：**
+- ✅ Web UI 管理：`http://10.0.0.3:3001`
+- ✅ 转换 Clash → sing-box
 - ✅ 多订阅合并
 - ✅ 高级过滤规则
-- ✅ 所有格式支持
+- ✅ Docker 部署，轻量级
+
+**使用流程：**
+1. 访问 `http://10.0.0.3:3001`
+2. 添加 Clash 订阅源
+3. 创建订阅集合，选择输出格式：**sing-box**
+4. 复制生成的订阅链接
+5. 使用该链接安装 sing-box
 
 ### 3. 安装AdGuard Home（10.0.0.4）
 
