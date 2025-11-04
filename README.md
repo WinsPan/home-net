@@ -72,22 +72,27 @@ ssh root@10.0.0.4
 curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-adguardhome.sh | bash
 ```
 
-访问：http://10.0.0.4:3000 完成初始化
+**安装后配置：**
+1. 访问：`http://10.0.0.4:3000`
+2. 完成初始化向导
+3. 参考详细配置：**[ADGUARDHOME.md](ADGUARDHOME.md)** 📖
 
 ---
 
 ## 📖 详细文档
 
-查看完整配置说明：**[DEPLOY.md](DEPLOY.md)**
+**主要文档：**
+- **[DEPLOY.md](DEPLOY.md)** - 完整部署指南（RouterOS配置、故障转移等）
+- **[ADGUARDHOME.md](ADGUARDHOME.md)** - AdGuard Home 详细配置手册
 
-内容包括：
+**内容包括：**
 - IP地址规划
 - 详细部署步骤
-- AdGuard Home配置
+- DNS 服务器配置
+- 过滤规则推荐
 - RouterOS集成
-- 测试验证
-- 服务管理
-- 常见问题
+- 性能优化
+- 故障排查
 
 ---
 
