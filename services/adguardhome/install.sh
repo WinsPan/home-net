@@ -63,11 +63,34 @@ function install_adguard() {
     msg_ok "AdGuard Home 安装完成"
 }
 
+function free_port_53() {
+    msg_info "释放 53 端口..."
+    
+    # 停止并禁用 systemd-resolved（占用 53 端口）
+    if systemctl is-active --quiet systemd-resolved; then
+        systemctl stop systemd-resolved
+        systemctl disable systemd-resolved
+        msg_ok "已停止 systemd-resolved"
+    fi
+    
+    # 配置 resolv.conf 使用公共 DNS
+    rm -f /etc/resolv.conf
+    cat > /etc/resolv.conf <<EOF
+nameserver 223.5.5.5
+nameserver 8.8.8.8
+EOF
+    
+    # 防止被覆盖
+    chattr +i /etc/resolv.conf
+    
+    msg_ok "53 端口已释放"
+}
+
 function setup_service() {
     msg_info "配置服务..."
     
     if ! /opt/AdGuardHome/AdGuardHome -s install &>/dev/null; then
-        msg_error "服务安装失败（可能端口 53 被占用）"
+        msg_error "服务安装失败（端口可能仍被占用）"
     fi
     
     systemctl enable AdGuardHome
@@ -126,6 +149,7 @@ function main() {
     detect_arch
     install_deps
     install_adguard
+    free_port_53
     setup_service
     show_summary
 }
