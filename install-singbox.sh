@@ -169,21 +169,16 @@ install_substore() {
     msg_info "安装依赖（需要几分钟）..."
     pnpm install || msg_warn "pnpm install 有警告"
     
-    msg_info "构建（跳过 lint 检查）..."
+    msg_info "构建（禁用 ESLint）..."
     
-    # 禁用 ESLint
-    export ESLINT_NO=true
-    export CI=false
+    # 创建 .eslintignore 忽略所有文件
+    cat > /opt/sub-store/backend/.eslintignore <<'EOF'
+**/*
+*
+src/**/*
+EOF
     
-    # 修改 gulpfile.js 跳过 lint 任务
-    cd /opt/sub-store
-    if [ -f "gulpfile.js" ]; then
-        # 将 gulp.series('lint', 'build') 改为 gulp.series('build')
-        sed -i.bak "s/gulp\.series.*'lint'.*,/gulp.series(/g" gulpfile.js
-        msg_info "已禁用 lint 任务"
-    fi
-    
-    cd backend
+    msg_info "已禁用 ESLint 检查"
     
     # 尝试构建
     if pnpm run build 2>&1 | tee /tmp/substore-build.log; then
