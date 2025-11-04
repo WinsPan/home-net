@@ -5,21 +5,30 @@
 ### 核心设计
 
 ```
-                    ┌─────────────────────────────────┐
-                    │  RouterOS (10.0.0.2)           │
-                    │  主路由 - 永远在线              │
-                    │  ✓ DNS故障转移                  │
-                    │  ✓ 代理故障转移                 │
-                    └─────────────────────────────────┘
-                              ↓
-                    ┌─────────┴─────────┐
-                    ↓                   ↓
-        ┌───────────────────┐  ┌──────────────────┐
-        │ AdGuard Home      │  │ sing-box         │
-        │ (10.0.0.4)        │  │ (10.0.0.3)       │
-        │ DNS + 去广告      │  │ 代理服务         │
-        │ ✓ 故障→公共DNS    │  │ ✓ 可选使用       │
-        └───────────────────┘  └──────────────────┘
+                        ┌─────────────────────────────────┐
+                        │  RouterOS (10.0.0.2)           │
+                        │  主路由 - 永远在线              │
+                        │  ✓ DNS故障转移                  │
+                        │  ✓ 代理故障转移                 │
+                        └─────────────────────────────────┘
+                                  ↓
+                        ┌─────────┴─────────┐
+                        ↓                   ↓
+            ┌───────────────────┐  ┌──────────────────┐
+            │ AdGuard Home      │  │ sing-box         │
+            │ (10.0.0.4)        │  │ (10.0.0.3)       │
+            │ DNS + 去广告      │  │ 代理服务         │
+            │ ✓ 故障→公共DNS    │  │ ✓ 可选使用       │
+            └───────────────────┘  └──────────────────┘
+                                          ↑
+                                          │ 订阅配置
+                                          │
+                                   ┌──────────────────┐
+                                   │ Sub-Store        │
+                                   │ (10.0.0.5)       │
+                                   │ 订阅转换         │
+                                   │ ✓ 可选部署       │
+                                   └──────────────────┘
 ```
 
 ### 关键特性
@@ -39,9 +48,16 @@
 - 方式2: RouterOS 透明代理（高级）
   - 自动代理，带故障转移路由
 
+✅ **订阅转换（Sub-Store）- 可选**
+- Docker 部署，轻量级
+- Web UI 管理订阅
+- 转换 Clash → sing-box
+- 多订阅合并和高级规则
+
 ✅ **故障不影响上网**
 - AdGuard Home 故障 → DNS 自动切换到公共 DNS
 - sing-box 故障 → 关闭代理或走直连路由
+- Sub-Store 故障 → 不影响已配置的 sing-box
 - RouterOS 主路由始终工作正常
 
 ---
@@ -52,7 +68,14 @@
 RouterOS (主路由):  10.0.0.2  ← 核心，永远在线
 sing-box (代理):    10.0.0.3  ← 可选，故障不影响上网
 AdGuard Home (DNS): 10.0.0.4  ← 去广告，有故障转移
+Sub-Store (转换):   10.0.0.5  ← 可选，订阅管理和转换
 ```
+
+**VM 配置建议：**
+- RouterOS: 专用路由器设备或 VM (512MB+)
+- sing-box VM: 1核 512MB 即可
+- AdGuard Home VM: 1核 512MB 即可
+- Sub-Store VM: 1核 256MB 即可（Docker 部署）
 
 ---
 
@@ -80,32 +103,76 @@ bash create-vm.sh
 # 配置：
 VM 名称: adguardhome
 VMID: 102
-CPU: 2核
-内存: 2048 MB
-磁盘: 10 GB
+CPU: 1核
+内存: 512 MB
+磁盘: 5 GB
 IP: 10.0.0.4/24
+网关: 10.0.0.2
+root密码: ******
+
+# 3. （可选）创建 Sub-Store VM
+bash create-vm.sh
+
+# 配置：
+VM 名称: substore
+VMID: 103
+CPU: 1核
+内存: 512 MB
+磁盘: 5 GB
+IP: 10.0.0.5/24
 网关: 10.0.0.2
 root密码: ******
 ```
 
-### 第二步：安装sing-box（在sing-box VM执行）
+### 第二步：（可选）部署 Sub-Store（订阅转换服务）
+
+**如果订阅是 Clash 格式，需要先部署 Sub-Store 进行转换**
+
+```bash
+# 1. SSH 登录 Sub-Store VM
+ssh root@10.0.0.5
+
+# 2. 一键部署（Docker 版）
+curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-substore-docker.sh | bash
+
+# 3. 访问 Web UI
+浏览器打开: http://10.0.0.5:3001
+
+# 4. 配置订阅转换
+- 点击 "订阅" → "+" 添加 Clash 订阅源
+- 点击 "集合" → "+" 创建订阅集合
+- 选择输出格式: sing-box
+- 复制生成的订阅链接（类似: http://10.0.0.5:3001/download/collection/xxx）
+```
+
+### 第三步：安装 sing-box（在 sing-box VM 执行）
+
+**重要：订阅必须是 sing-box 格式**
+
+**方案 A：直接使用 sing-box 订阅**
 
 ```bash
 # SSH登录
 ssh root@10.0.0.3
 
-# 下载安装脚本
-curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox.sh -o install.sh
+# 一键安装
+curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox.sh | bash
 
-# 运行安装
-bash install.sh
-
-# 根据提示：
-订阅地址: https://your-subscription-url
-订阅格式 (1=sing-box, 2=Clash需转换) [1]: 2  # 如果是Clash订阅选2
+# 输入 sing-box 格式订阅地址
 ```
 
-### 第三步：安装AdGuard Home（在AdGuard Home VM执行）
+**方案 B：使用 Sub-Store 转换后的订阅**
+
+```bash
+# SSH登录
+ssh root@10.0.0.3
+
+# 使用 Sub-Store 生成的订阅链接
+SUB_URL="http://10.0.0.5:3001/download/collection/你的集合名称" \
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-singbox.sh)"
+```
+
+### 第四步：安装 AdGuard Home（在 AdGuard Home VM 执行）
 
 ```bash
 # SSH登录
