@@ -246,8 +246,14 @@ install_mihomo() {
 create_menu_script() {
     msg_info "创建菜单脚本..."
     
+    # 确保目录存在
+    mkdir -p /usr/local/bin
+    
+    # 创建临时文件，然后移动（避免 heredoc 卡住）
+    local temp_menu=$(mktemp)
+    
     # 创建菜单脚本
-    cat > /usr/local/bin/mihomo-menu <<'MENU_EOF'
+    cat > "$temp_menu" <<'MENU_EOF'
 #!/usr/bin/env bash
 # Mihomo 管理菜单
 
@@ -642,19 +648,29 @@ reinstall_mihomo() {
         return
     fi
     
-    # 先卸载
-    uninstall_mihomo
+    # 先卸载（不提示确认）
+    msg_info "开始卸载..."
     
-    echo ""
-    msg_info "开始重新安装..."
-    
-    # 调用安装脚本重新安装
-    if [ -f "$0" ]; then
-        # 如果是通过脚本调用，直接执行安装流程
-        bash "$0" --skip-uninstall-check
-    else
-        msg_error "无法找到安装脚本，请手动运行安装脚本"
+    if systemctl is-active --quiet mihomo 2>/dev/null; then
+        systemctl stop mihomo
     fi
+    
+    if systemctl is-enabled --quiet mihomo 2>/dev/null; then
+        systemctl disable mihomo
+    fi
+    
+    [ -f /etc/systemd/system/mihomo.service ] && rm -f /etc/systemd/system/mihomo.service && systemctl daemon-reload
+    [ -f /usr/local/bin/mihomo-bin ] && rm -f /usr/local/bin/mihomo-bin
+    [ -f /usr/local/bin/mihomo ] && rm -f /usr/local/bin/mihomo
+    [ -f /usr/local/bin/mihomo-menu ] && rm -f /usr/local/bin/mihomo-menu
+    
+    msg_ok "卸载完成"
+    echo ""
+    msg_info "请运行安装脚本完成重新安装："
+    echo "  bash install-mihomo.sh"
+    echo ""
+    msg_info "或退出菜单后运行："
+    echo "  bash install-mihomo.sh --reinstall"
 }
 
 main() {
@@ -723,10 +739,13 @@ main() {
 main
 MENU_EOF
     
+    # 移动临时文件到目标位置
+    mv "$temp_menu" /usr/local/bin/mihomo-menu
     chmod +x /usr/local/bin/mihomo-menu
     
     # 创建包装脚本，支持 mihomo menu 命令
-    cat > /usr/local/bin/mihomo <<'WRAPPER_EOF'
+    local temp_wrapper=$(mktemp)
+    cat > "$temp_wrapper" <<'WRAPPER_EOF'
 #!/usr/bin/env bash
 # Mihomo 包装脚本，支持 menu 子命令
 
@@ -737,6 +756,8 @@ else
 fi
 WRAPPER_EOF
     
+    # 移动临时文件到目标位置
+    mv "$temp_wrapper" /usr/local/bin/mihomo
     chmod +x /usr/local/bin/mihomo
     
     msg_ok "菜单脚本已创建"
@@ -973,15 +994,25 @@ reinstall_main() {
     MODE="install"
 }
 
-main() {
-    # 根据模式执行不同操作
-    if [ "$MODE" = "uninstall" ]; then
-        uninstall_main
-        exit 0
-    elif [ "$MODE" = "reinstall" ]; then
-        reinstall_main
+# 显示主菜单
+show_main_menu() {
+    header
+    echo ""
+    echo "请选择操作："
+    echo ""
+    echo "  1) 安装 Mihomo"
+    echo "  2) 卸载 Mihomo"
+    echo "  3) 重新安装 Mihomo"
+    if [ -f /usr/local/bin/mihomo-menu ]; then
+        echo "  4) 进入管理菜单"
     fi
-    
+    echo "  0) 退出"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
+
+# 安装流程
+install_flow() {
     # 显示标题
     header
     
@@ -1020,6 +1051,78 @@ main() {
     
     # 完成
     show_summary
+}
+
+main() {
+    # 如果有命令行参数，直接执行对应操作
+    if [ "$MODE" = "uninstall" ]; then
+        uninstall_main
+        exit 0
+    elif [ "$MODE" = "reinstall" ]; then
+        reinstall_main
+        # 重新安装会继续执行安装流程
+        install_flow
+        show_summary
+        exit 0
+    fi
+    
+    # 没有参数时，显示主菜单
+    while true; do
+        show_main_menu
+        
+        # 检查权限（仅提示，不强制退出）
+        if [ "$EUID" -ne 0 ]; then
+            msg_warn "注意：部分操作需要 root 权限，请使用 sudo 运行脚本"
+            echo ""
+        fi
+        
+        local max_option=3
+        if [ -f /usr/local/bin/mihomo-menu ]; then
+            max_option=4
+        fi
+        
+        read -p "请选择操作 [0-${max_option}]: " choice
+        echo ""
+        
+        case $choice in
+            1)
+                install_flow
+                show_summary
+                echo ""
+                read -p "按 Enter 键返回主菜单..."
+                ;;
+            2)
+                uninstall_main
+                echo ""
+                read -p "按 Enter 键返回主菜单..."
+                ;;
+            3)
+                reinstall_main
+                install_flow
+                show_summary
+                echo ""
+                read -p "按 Enter 键返回主菜单..."
+                ;;
+            4)
+                if [ -f /usr/local/bin/mihomo-menu ]; then
+                    /usr/local/bin/mihomo-menu
+                else
+                    msg_error "管理菜单不存在，请先安装 Mihomo"
+                    echo ""
+                    read -p "按 Enter 键返回主菜单..."
+                fi
+                ;;
+            0)
+                msg_info "退出"
+                exit 0
+                ;;
+            *)
+                msg_error "无效选择，请重新输入"
+                echo ""
+                read -p "按 Enter 键继续..."
+                ;;
+        esac
+    done
 }
 
 # 捕获错误
