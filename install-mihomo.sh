@@ -277,10 +277,11 @@ show_menu() {
     echo "  7) 验证配置文件"
     echo "  8) 重新加载配置"
     echo "  9) 编辑配置文件"
-    echo " 10) 查看版本信息"
-    echo " 11) 打开 Dashboard"
-    echo " 12) 重新安装"
-    echo " 13) 卸载"
+    echo " 10) 修改订阅链接"
+    echo " 11) 查看版本信息"
+    echo " 12) 打开 Dashboard"
+    echo " 13) 重新安装"
+    echo " 14) 卸载"
     echo "  0) 退出"
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -370,6 +371,186 @@ edit_config() {
     fi
     msg_info "使用 $editor 编辑配置文件..."
     "$editor" /etc/mihomo/config.yaml
+}
+
+edit_subscription() {
+    if [ ! -f /etc/mihomo/config.yaml ]; then
+        msg_error "配置文件不存在: /etc/mihomo/config.yaml"
+        return 1
+    fi
+    
+    msg_info "修改订阅链接..."
+    echo ""
+    
+    # 显示当前的订阅配置
+    msg_info "当前订阅配置："
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    grep -A 2 "proxy-providers:" /etc/mihomo/config.yaml | head -20
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    
+    # 查找 proxy-providers 部分
+    local providers_start=$(grep -n "^proxy-providers:" /etc/mihomo/config.yaml | cut -d: -f1)
+    
+    if [ -z "$providers_start" ]; then
+        msg_error "未找到 proxy-providers 配置部分"
+        return 1
+    fi
+    
+    echo "请选择操作："
+    echo "  1) 添加新订阅"
+    echo "  2) 编辑现有订阅"
+    echo "  3) 删除订阅"
+    echo "  0) 取消"
+    echo ""
+    read -p "请选择 [0-3]: " action
+    
+    case $action in
+        1)
+            add_subscription
+            ;;
+        2)
+            edit_existing_subscription
+            ;;
+        3)
+            delete_subscription
+            ;;
+        0)
+            msg_info "取消操作"
+            return 0
+            ;;
+        *)
+            msg_error "无效选择"
+            return 1
+            ;;
+    esac
+}
+
+add_subscription() {
+    echo ""
+    msg_info "添加新订阅..."
+    read -p "订阅名称（例如：优质服务商）: " sub_name
+    if [ -z "$sub_name" ]; then
+        msg_error "订阅名称不能为空"
+        return 1
+    fi
+    
+    read -p "订阅链接 URL: " sub_url
+    if [ -z "$sub_url" ]; then
+        msg_error "订阅链接不能为空"
+        return 1
+    fi
+    
+    # 检查订阅名称是否已存在
+    if grep -q "^\s*${sub_name}:" /etc/mihomo/config.yaml; then
+        msg_error "订阅名称已存在: $sub_name"
+        return 1
+    fi
+    
+    # 备份配置文件
+    cp /etc/mihomo/config.yaml /etc/mihomo/config.yaml.backup.$(date +%Y%m%d_%H%M%S)
+    
+    # 找到 proxy-providers 部分的最后一个订阅项
+    local providers_start=$(grep -n "^proxy-providers:" /etc/mihomo/config.yaml | cut -d: -f1)
+    local last_provider_line=$(awk -v start="$providers_start" 'NR > start && /^\s+[^#].*:/ && !/^[a-zA-Z]/ {line=NR} END {print line}' /etc/mihomo/config.yaml)
+    
+    if [ -z "$last_provider_line" ]; then
+        # 如果没有找到，在 proxy-providers 后添加
+        sed -i "/^proxy-providers:/a\  ${sub_name}: {<<: *BaseProvider, url: '${sub_url}'}" /etc/mihomo/config.yaml
+    else
+        # 在最后一个订阅后添加
+        sed -i "${last_provider_line}a\  ${sub_name}: {<<: *BaseProvider, url: '${sub_url}'}" /etc/mihomo/config.yaml
+    fi
+    
+    msg_ok "订阅已添加: $sub_name"
+    msg_info "请重启服务使配置生效"
+}
+
+edit_existing_subscription() {
+    echo ""
+    msg_info "编辑现有订阅..."
+    
+    # 列出所有订阅
+    local subscriptions=$(grep -A 100 "^proxy-providers:" /etc/mihomo/config.yaml | grep -E "^\s+[^#].*:" | sed 's/://g' | sed 's/^[[:space:]]*//' | head -20)
+    
+    if [ -z "$subscriptions" ]; then
+        msg_error "未找到订阅配置"
+        return 1
+    fi
+    
+    echo "当前订阅列表："
+    echo "$subscriptions" | nl
+    echo ""
+    read -p "请输入要编辑的订阅编号: " sub_num
+    
+    local sub_name=$(echo "$subscriptions" | sed -n "${sub_num}p")
+    if [ -z "$sub_name" ]; then
+        msg_error "无效的订阅编号"
+        return 1
+    fi
+    
+    echo ""
+    msg_info "当前订阅: $sub_name"
+    local current_url=$(grep -A 1 "^\s*${sub_name}:" /etc/mihomo/config.yaml | grep "url:" | sed "s/.*url: ['\"]\(.*\)['\"].*/\1/")
+    echo "当前链接: $current_url"
+    echo ""
+    
+    read -p "新订阅链接 URL: " new_url
+    if [ -z "$new_url" ]; then
+        msg_error "订阅链接不能为空"
+        return 1
+    fi
+    
+    # 备份配置文件
+    cp /etc/mihomo/config.yaml /etc/mihomo/config.yaml.backup.$(date +%Y%m%d_%H%M%S)
+    
+    # 替换 URL
+    sed -i "/^\s*${sub_name}:/,/url:/s|url: ['\"].*['\"]|url: '${new_url}'|" /etc/mihomo/config.yaml
+    
+    msg_ok "订阅已更新: $sub_name"
+    msg_info "请重启服务使配置生效"
+}
+
+delete_subscription() {
+    echo ""
+    msg_warn "删除订阅..."
+    
+    # 列出所有订阅
+    local subscriptions=$(grep -A 100 "^proxy-providers:" /etc/mihomo/config.yaml | grep -E "^\s+[^#].*:" | sed 's/://g' | sed 's/^[[:space:]]*//' | head -20)
+    
+    if [ -z "$subscriptions" ]; then
+        msg_error "未找到订阅配置"
+        return 1
+    fi
+    
+    echo "当前订阅列表："
+    echo "$subscriptions" | nl
+    echo ""
+    read -p "请输入要删除的订阅编号: " sub_num
+    
+    local sub_name=$(echo "$subscriptions" | sed -n "${sub_num}p")
+    if [ -z "$sub_name" ]; then
+        msg_error "无效的订阅编号"
+        return 1
+    fi
+    
+    echo ""
+    msg_warn "将删除订阅: $sub_name"
+    read -p "确认删除？(y/N): " confirm
+    
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        msg_info "取消删除"
+        return 0
+    fi
+    
+    # 备份配置文件
+    cp /etc/mihomo/config.yaml /etc/mihomo/config.yaml.backup.$(date +%Y%m%d_%H%M%S)
+    
+    # 删除订阅（包括下一行的配置）
+    sed -i "/^\s*${sub_name}:/,/},$/d" /etc/mihomo/config.yaml
+    
+    msg_ok "订阅已删除: $sub_name"
+    msg_info "请重启服务使配置生效"
 }
 
 show_version() {
@@ -479,7 +660,7 @@ reinstall_mihomo() {
 main() {
     while true; do
         show_menu
-        read -p "请选择操作 [0-13]: " choice
+        read -p "请选择操作 [0-14]: " choice
         echo ""
         
         case $choice in
@@ -511,15 +692,18 @@ main() {
                 edit_config
                 ;;
             10)
-                show_version
+                edit_subscription
                 ;;
             11)
-                open_dashboard
+                show_version
                 ;;
             12)
-                reinstall_mihomo
+                open_dashboard
                 ;;
             13)
+                reinstall_mihomo
+                ;;
+            14)
                 uninstall_mihomo
                 ;;
             0)
@@ -564,11 +748,11 @@ setup_config() {
     # 创建配置目录
     mkdir -p /etc/mihomo
     
-    # 如果配置文件不存在，从 GitHub 下载 OneSmartPro 配置
+    # 如果配置文件不存在，从 GitHub 下载 MihomoPro 配置
     if [ ! -f /etc/mihomo/config.yaml ]; then
-        msg_info "下载 OneSmartPro 配置文件..."
+        msg_info "下载 MihomoPro 配置文件..."
         
-        local original_url="https://raw.githubusercontent.com/666OS/YYDS/main/mihomo/config/OneSmartPro.yaml"
+        local original_url="https://raw.githubusercontent.com/666OS/YYDS/main/mihomo/config/MihomoPro.yaml"
         local download_url=$(convert_github_url "$original_url")
         
         msg_info "使用 GitHub 加速: $GH_PROXY"
