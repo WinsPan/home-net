@@ -3,10 +3,21 @@
 # 在 VM 上运行：bash install-mihomo.sh
 # 或在线运行：curl -fsSL https://raw.githubusercontent.com/WinsPan/home-net/main/install-mihomo.sh | bash
 # 调试模式：DEBUG=1 bash install-mihomo.sh
+# 卸载：bash install-mihomo.sh --uninstall
+# 重新安装：bash install-mihomo.sh --reinstall
 # 注意：脚本使用 https://gh-proxy.com/ 加速 GitHub 资源下载
 
 # 启用调试模式
 [ "$DEBUG" = "1" ] && set -x
+
+# 解析命令行参数
+if [ "$1" = "--uninstall" ]; then
+    MODE="uninstall"
+elif [ "$1" = "--reinstall" ]; then
+    MODE="reinstall"
+else
+    MODE="install"
+fi
 
 # GitHub 加速配置
 GH_PROXY="https://gh-proxy.com/"
@@ -67,13 +78,39 @@ detect_arch() {
     msg_info "检测到架构: $machine_arch"
     
     case $machine_arch in
-        x86_64) ARCH="amd64" ;;
+        x86_64) 
+            ARCH="amd64"
+            # 检测 CPU 指令集支持
+            detect_cpu_features
+            ;;
         aarch64|arm64) ARCH="arm64" ;;
         armv7l|armv6l) ARCH="armv7" ;;
         *) msg_error "不支持的架构: $machine_arch" ;;
     esac
     
     msg_ok "架构: $ARCH"
+}
+
+# 检测 CPU 特性，确定使用哪个 amd64 版本
+detect_cpu_features() {
+    if [ "$ARCH" != "amd64" ]; then
+        return
+    fi
+    
+    msg_info "检测 CPU 指令集支持..."
+    
+    # 检查是否支持 AVX2 (v3 指令集)
+    if grep -q "avx2" /proc/cpuinfo 2>/dev/null; then
+        ARCH_SUFFIX="v3"
+        msg_ok "CPU 支持 AVX2 (v3)，使用高性能版本"
+    # 检查是否支持 AVX (v2 指令集)
+    elif grep -q " avx " /proc/cpuinfo 2>/dev/null || grep -q "^flags.* avx " /proc/cpuinfo 2>/dev/null; then
+        ARCH_SUFFIX="v2"
+        msg_ok "CPU 支持 AVX (v2)，使用 v2 版本"
+    else
+        ARCH_SUFFIX="compatible"
+        msg_ok "CPU 不支持 AVX，使用兼容版本"
+    fi
 }
 
 get_latest_version() {
@@ -121,28 +158,63 @@ install_deps() {
 install_mihomo() {
     msg_info "下载 Mihomo..."
     
-    # 官方下载格式: mihomo-linux-${ARCH}-${VERSION}.gz
-    local original_url="https://github.com/MetaCubeX/mihomo/releases/download/${VERSION}/mihomo-linux-${ARCH}-${VERSION}.gz"
-    local download_url=$(convert_github_url "$original_url")
-    
-    msg_info "下载地址: $original_url"
-    msg_info "使用 GitHub 加速: $GH_PROXY"
-    
-    # 使用 wget 或 curl 下载
-    if command -v wget &>/dev/null; then
-        if [ -t 1 ]; then
-            # 终端环境，显示进度
-            wget --show-progress "$download_url" -O /tmp/mihomo.gz
-        else
-            # 非终端环境，静默下载
-            wget -q "$download_url" -O /tmp/mihomo.gz
-        fi
+    # 根据架构和 CPU 特性确定下载文件名
+    local filename=""
+    if [ "$ARCH" = "amd64" ] && [ -n "$ARCH_SUFFIX" ]; then
+        # amd64 架构，使用检测到的版本后缀
+        filename="mihomo-linux-${ARCH}-${ARCH_SUFFIX}-${VERSION}.gz"
     else
-        curl -fsSL "$download_url" -o /tmp/mihomo.gz
+        # 其他架构，使用标准格式
+        filename="mihomo-linux-${ARCH}-${VERSION}.gz"
     fi
     
-    if [ $? -ne 0 ] || [ ! -f /tmp/mihomo.gz ] || [ ! -s /tmp/mihomo.gz ]; then
-        msg_error "下载失败，请检查网络连接和版本信息"
+    # 尝试下载，如果失败则尝试其他兼容版本（仅 amd64）
+    local download_success=false
+    local try_versions=("$filename")
+    
+    if [ "$ARCH" = "amd64" ]; then
+        # 如果当前是 v3，失败时尝试 v2 和 compatible
+        if [ "$ARCH_SUFFIX" = "v3" ]; then
+            try_versions+=("mihomo-linux-amd64-v2-${VERSION}.gz")
+            try_versions+=("mihomo-linux-amd64-compatible-${VERSION}.gz")
+        elif [ "$ARCH_SUFFIX" = "v2" ]; then
+            # 如果当前是 v2，失败时尝试 compatible
+            try_versions+=("mihomo-linux-amd64-compatible-${VERSION}.gz")
+        fi
+    fi
+    
+    for filename in "${try_versions[@]}"; do
+        local original_url="https://github.com/MetaCubeX/mihomo/releases/download/${VERSION}/${filename}"
+        local download_url=$(convert_github_url "$original_url")
+        
+        msg_info "尝试下载: $filename"
+        msg_info "使用 GitHub 加速: $GH_PROXY"
+        
+        # 使用 wget 或 curl 下载
+        if command -v wget &>/dev/null; then
+            if [ -t 1 ]; then
+                # 终端环境，显示进度
+                wget --show-progress "$download_url" -O /tmp/mihomo.gz 2>&1
+            else
+                # 非终端环境，静默下载
+                wget -q "$download_url" -O /tmp/mihomo.gz 2>&1
+            fi
+        else
+            curl -fsSL "$download_url" -o /tmp/mihomo.gz 2>&1
+        fi
+        
+        if [ $? -eq 0 ] && [ -f /tmp/mihomo.gz ] && [ -s /tmp/mihomo.gz ]; then
+            download_success=true
+            msg_ok "下载成功: $filename"
+            break
+        else
+            msg_warn "下载失败: $filename，尝试下一个版本..."
+            rm -f /tmp/mihomo.gz
+        fi
+    done
+    
+    if [ "$download_success" = false ]; then
+        msg_error "所有版本下载失败，请检查网络连接和版本信息"
     fi
     
     msg_info "解压文件..."
@@ -207,6 +279,8 @@ show_menu() {
     echo "  9) 编辑配置文件"
     echo " 10) 查看版本信息"
     echo " 11) 打开 Dashboard"
+    echo " 12) 重新安装"
+    echo " 13) 卸载"
     echo "  0) 退出"
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -317,10 +391,95 @@ open_dashboard() {
     fi
 }
 
+uninstall_mihomo() {
+    msg_warn "此操作将卸载 Mihomo，包括："
+    echo "  - 停止并删除服务"
+    echo "  - 删除可执行文件"
+    echo "  - 删除菜单脚本"
+    echo "  - 配置文件将保留在 /etc/mihomo/"
+    echo ""
+    read -p "确认卸载？(y/N): " confirm
+    
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        msg_info "取消卸载"
+        return
+    fi
+    
+    msg_info "开始卸载..."
+    
+    # 停止服务
+    if systemctl is-active --quiet mihomo 2>/dev/null; then
+        msg_info "停止服务..."
+        systemctl stop mihomo
+    fi
+    
+    # 禁用服务
+    if systemctl is-enabled --quiet mihomo 2>/dev/null; then
+        msg_info "禁用服务..."
+        systemctl disable mihomo
+    fi
+    
+    # 删除服务文件
+    if [ -f /etc/systemd/system/mihomo.service ]; then
+        msg_info "删除服务文件..."
+        rm -f /etc/systemd/system/mihomo.service
+        systemctl daemon-reload
+    fi
+    
+    # 删除可执行文件
+    if [ -f /usr/local/bin/mihomo-bin ]; then
+        msg_info "删除可执行文件..."
+        rm -f /usr/local/bin/mihomo-bin
+    fi
+    
+    # 删除包装脚本和菜单脚本
+    if [ -f /usr/local/bin/mihomo ]; then
+        msg_info "删除包装脚本..."
+        rm -f /usr/local/bin/mihomo
+    fi
+    
+    if [ -f /usr/local/bin/mihomo-menu ]; then
+        msg_info "删除菜单脚本..."
+        rm -f /usr/local/bin/mihomo-menu
+    fi
+    
+    msg_ok "卸载完成"
+    msg_info "配置文件已保留在 /etc/mihomo/，如需完全删除请手动执行："
+    echo "  rm -rf /etc/mihomo"
+}
+
+reinstall_mihomo() {
+    msg_warn "此操作将重新安装 Mihomo："
+    echo "  - 先卸载当前版本"
+    echo "  - 然后重新下载并安装最新版本"
+    echo "  - 配置文件将保留"
+    echo ""
+    read -p "确认重新安装？(y/N): " confirm
+    
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        msg_info "取消重新安装"
+        return
+    fi
+    
+    # 先卸载
+    uninstall_mihomo
+    
+    echo ""
+    msg_info "开始重新安装..."
+    
+    # 调用安装脚本重新安装
+    if [ -f "$0" ]; then
+        # 如果是通过脚本调用，直接执行安装流程
+        bash "$0" --skip-uninstall-check
+    else
+        msg_error "无法找到安装脚本，请手动运行安装脚本"
+    fi
+}
+
 main() {
     while true; do
         show_menu
-        read -p "请选择操作 [0-11]: " choice
+        read -p "请选择操作 [0-13]: " choice
         echo ""
         
         case $choice in
@@ -356,6 +515,12 @@ main() {
                 ;;
             11)
                 open_dashboard
+                ;;
+            12)
+                reinstall_mihomo
+                ;;
+            13)
+                uninstall_mihomo
                 ;;
             0)
                 msg_info "退出菜单"
@@ -523,7 +688,116 @@ show_summary() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
+# 卸载函数（用于主脚本）
+uninstall_main() {
+    header
+    check_root
+    
+    msg_warn "此操作将卸载 Mihomo，包括："
+    echo "  - 停止并删除服务"
+    echo "  - 删除可执行文件"
+    echo "  - 删除菜单脚本"
+    echo "  - 配置文件将保留在 /etc/mihomo/"
+    echo ""
+    read -p "确认卸载？(y/N): " confirm
+    
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        msg_info "取消卸载"
+        exit 0
+    fi
+    
+    msg_info "开始卸载..."
+    
+    # 停止服务
+    if systemctl is-active --quiet mihomo 2>/dev/null; then
+        msg_info "停止服务..."
+        systemctl stop mihomo
+    fi
+    
+    # 禁用服务
+    if systemctl is-enabled --quiet mihomo 2>/dev/null; then
+        msg_info "禁用服务..."
+        systemctl disable mihomo
+    fi
+    
+    # 删除服务文件
+    if [ -f /etc/systemd/system/mihomo.service ]; then
+        msg_info "删除服务文件..."
+        rm -f /etc/systemd/system/mihomo.service
+        systemctl daemon-reload
+    fi
+    
+    # 删除可执行文件
+    if [ -f /usr/local/bin/mihomo-bin ]; then
+        msg_info "删除可执行文件..."
+        rm -f /usr/local/bin/mihomo-bin
+    fi
+    
+    # 删除包装脚本和菜单脚本
+    if [ -f /usr/local/bin/mihomo ]; then
+        msg_info "删除包装脚本..."
+        rm -f /usr/local/bin/mihomo
+    fi
+    
+    if [ -f /usr/local/bin/mihomo-menu ]; then
+        msg_info "删除菜单脚本..."
+        rm -f /usr/local/bin/mihomo-menu
+    fi
+    
+    msg_ok "卸载完成"
+    msg_info "配置文件已保留在 /etc/mihomo/，如需完全删除请手动执行："
+    echo "  rm -rf /etc/mihomo"
+}
+
+# 重新安装函数（用于主脚本）
+reinstall_main() {
+    header
+    check_root
+    
+    msg_warn "此操作将重新安装 Mihomo："
+    echo "  - 先卸载当前版本"
+    echo "  - 然后重新下载并安装最新版本"
+    echo "  - 配置文件将保留"
+    echo ""
+    read -p "确认重新安装？(y/N): " confirm
+    
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        msg_info "取消重新安装"
+        exit 0
+    fi
+    
+    # 先卸载（不提示确认）
+    msg_info "开始卸载..."
+    
+    if systemctl is-active --quiet mihomo 2>/dev/null; then
+        systemctl stop mihomo
+    fi
+    
+    if systemctl is-enabled --quiet mihomo 2>/dev/null; then
+        systemctl disable mihomo
+    fi
+    
+    [ -f /etc/systemd/system/mihomo.service ] && rm -f /etc/systemd/system/mihomo.service && systemctl daemon-reload
+    [ -f /usr/local/bin/mihomo-bin ] && rm -f /usr/local/bin/mihomo-bin
+    [ -f /usr/local/bin/mihomo ] && rm -f /usr/local/bin/mihomo
+    [ -f /usr/local/bin/mihomo-menu ] && rm -f /usr/local/bin/mihomo-menu
+    
+    msg_ok "卸载完成，开始重新安装..."
+    echo ""
+    
+    # 继续执行安装流程
+    MODE="install"
+}
+
 main() {
+    # 根据模式执行不同操作
+    if [ "$MODE" = "uninstall" ]; then
+        uninstall_main
+        exit 0
+    elif [ "$MODE" = "reinstall" ]; then
+        reinstall_main
+    fi
+    
     # 显示标题
     header
     
