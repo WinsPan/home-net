@@ -1081,17 +1081,14 @@ main() {
             max_option=4
         fi
         
-        # 确保从终端读取输入
-        if [ ! -t 0 ]; then
-            # 如果不是终端，提示用户
-            msg_error "脚本需要交互式终端运行"
-            msg_info "请直接运行: bash install-mihomo.sh"
-            exit 1
-        fi
-        
         # 从标准输入读取选择
         printf "请选择操作 [0-${max_option}]: "
-        read -r choice < /dev/tty 2>/dev/null || read -r choice
+        # 尝试从 /dev/tty 读取，如果失败则从标准输入读取
+        if [ -t 0 ] && [ -c /dev/tty ]; then
+            read -r choice < /dev/tty 2>/dev/null || read -r choice
+        else
+            read -r choice
+        fi
         
         # 去除前后空白字符
         choice=$(echo "$choice" | tr -d '[:space:]')
