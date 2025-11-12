@@ -1081,7 +1081,28 @@ main() {
             max_option=4
         fi
         
-        read -p "请选择操作 [0-${max_option}]: " choice
+        # 确保从终端读取输入
+        if [ ! -t 0 ]; then
+            # 如果不是终端，提示用户
+            msg_error "脚本需要交互式终端运行"
+            msg_info "请直接运行: bash install-mihomo.sh"
+            exit 1
+        fi
+        
+        # 从标准输入读取选择
+        printf "请选择操作 [0-${max_option}]: "
+        read -r choice < /dev/tty 2>/dev/null || read -r choice
+        
+        # 去除前后空白字符
+        choice=$(echo "$choice" | tr -d '[:space:]')
+        
+        # 如果输入为空，重新显示菜单
+        if [ -z "$choice" ]; then
+            msg_warn "未输入选择，请重新输入"
+            sleep 1
+            continue
+        fi
+        
         echo ""
         
         case $choice in
@@ -1117,9 +1138,17 @@ main() {
                 exit 0
                 ;;
             *)
-                msg_error "无效选择，请重新输入"
+                if [ -n "$choice" ]; then
+                    msg_error "无效选择: '$choice'，请重新输入"
+                else
+                    msg_error "未输入选择，请重新输入"
+                fi
                 echo ""
-                read -p "按 Enter 键继续..."
+                if [ -t 0 ]; then
+                    read -r -p "按 Enter 键继续..."
+                else
+                    sleep 2
+                fi
                 ;;
         esac
     done
